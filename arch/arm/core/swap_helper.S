@@ -313,6 +313,13 @@ SECTION_FUNC(TEXT, __svc)
     * expand this case.
     */
     ands r1, #0xff
+
+    cmp r1, #10
+    beq _do_tfm_core_call
+
+    cmp r1, #11
+    beq _do_tfm_multiple_call
+
 #if CONFIG_USERSPACE
     mrs r2, CONTROL
 
@@ -344,6 +351,55 @@ _oops:
     push {lr}
     blx _do_kernel_oops
     pop {pc}
+
+_do_tfm_core_call:
+    push {r0, lr}
+    ldr ip, [r0, #0]
+    ldr r0, [r0, #4]
+    ldr r1, [r0, #4]
+    ldr r2, [r0, #8]
+    ldr r3, [r0, #12]
+    ldr r0, [r0]
+    blx ip
+    pop {r1, lr}
+    str r0, [r1]
+    bx lr
+
+_do_tfm_multiple_call:
+    push {r0, lr}
+    ldr ip, [r0, #0]
+    ldr r0, [r0, #4]
+    ldr r1, [r0, #4]
+    ldr r2, [r0, #8]
+    ldr r3, [r0, #12]
+    ldr r0, [r0]
+    blx ip
+    pop {r1, lr}
+    cmp r0, #0
+    bne failed_first_call
+
+    # second call
+    push {r1, lr}
+    mov r0, r1
+    ldr ip, [r0, #0]
+    ldr r0, [r0, #4]
+    ldr r1, [r0, #4]
+    ldr r2, [r0, #8]
+    ldr r3, [r0, #12]
+    ldr r0, [r0]
+    blx ip
+    pop {r1, lr}
+    cmp r0, #0
+    beq ret_call
+    ldr r0, =#27
+    b ret_call
+    # first call fails, CORE_TEST_ERRNO_SECOND_CALL_FAILED
+
+failed_first_call:
+    ldr r0, =#26
+ret_call:
+    str r0, [r1]
+    bx lr
 
 #if CONFIG_USERSPACE
     /*
