@@ -216,12 +216,16 @@ static int uart_cmsdk_apb_fifo_fill(struct device *dev,
 				    const u8_t *tx_data, int len)
 {
 	volatile struct uart_cmsdk_apb *uart = UART_STRUCT(dev);
+    int i = len;
 
 	/* No hardware FIFO present */
+    while(i) {
 	if (len && !(uart->state & UART_TX_BF)) {
-		uart->data = *tx_data;
-		return 1;
+		uart->data = *(tx_data + len - i);
+//		return 1;
 	}
+    i--;
+        }
 
 	return 0;
 }

@@ -526,6 +526,69 @@ static void tfm_sst_test_1002(void)
 }
 #endif
 
+#if defined CONFIG_BOARD_MUSCA_A
+
+#include <uart.h>
+#include <misc/byteorder.h>
+
+#define BUF_MAXSIZE	256
+#define SLEEP_TIME	500
+
+static struct device *uart0_dev;
+static u8_t rx_buf[BUF_MAXSIZE];
+static u8_t tx_buf[BUF_MAXSIZE];
+
+static void msg_dump(const char *s, u8_t *data, unsigned len)
+{
+	unsigned i;
+
+    uart_fifo_fill(uart0_dev, s, sizeof(u32_t) + strlen(s));
+return;
+	printk("%s: ", s);
+	for (i = 0; i < len; i++) {
+		printk("%02x ", data[i]);
+	}
+	printk("(%u bytes)\n", len);
+}
+
+static void uart0_isr(struct device *x)
+{
+	int len = uart_fifo_read(uart0_dev, rx_buf, BUF_MAXSIZE);
+
+	ARG_UNUSED(x);
+	msg_dump(__func__, rx_buf, len);
+}
+
+static void uart0_init(void)
+{
+	uart0_dev = device_get_binding("UART_0");
+
+	uart_irq_callback_set(uart0_dev, uart0_isr);
+	uart_irq_rx_enable(uart0_dev);
+
+	printk("%s() done\n", __func__);
+}
+
+void main(void)
+{
+	u32_t *size = (u32_t *)tx_buf;
+
+	printk("Sample app running on: %s\n", CONFIG_ARCH);
+
+	uart0_init();
+    char counter = 0;
+	while (1) {
+        sprintf(tx_buf, "zss %d \r\n", counter++);
+        uart_fifo_fill(uart0_dev, tx_buf, sizeof(u32_t) + strlen(tx_buf));
+
+        uart0_isr(1);
+//		printk("========V2M Musca A1========\n");
+//		printk("Print Counter : 0x%02x\n", counter++);
+		k_sleep(K_MSEC(1000));
+	}
+}
+
+#else
 void main(void)
 {
 #if defined CONFIG_BOARD_MPS2_AN521
@@ -575,3 +638,4 @@ void main(void)
 	}
 #endif
 }
+#endif
