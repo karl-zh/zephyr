@@ -341,6 +341,52 @@ static void _uart_pl011_clear_lcr_h_bit(struct _uart_pl011_reg_map_t* p_uart,
 }
 
 
+static bool _uart_pl011_is_readable(struct _uart_pl011_reg_map_t* uart)
+{
+    if((uart->uartcr & UART_PL011_UARTCR_EN_MASK) &&
+                /* UART is enabled */
+        (uart->uartcr & UART_PL011_UARTCR_RX_EN_MASK) &&
+                /* Receive is enabled */
+        ((uart->uartfr & UART_PL011_UARTFR_RX_FIFO_EMPTY) == 0)) {
+                /* Receive Fifo is not empty */
+        return true;
+    }
+
+    return false;
+
+}
+
+static enum uart_pl011_error_t _uart_pl011_read(
+                    struct _uart_pl011_reg_map_t* uart, uint8_t* byte)
+{
+    *byte = uart->uartdr;
+
+    return (enum uart_pl011_error_t)(uart->uartrsr
+                                         & UART_PL011_RX_ERR_MASK);
+}
+
+static bool _uart_pl011_is_writable(struct _uart_pl011_reg_map_t* uart)
+{
+    if((uart->uartcr & UART_PL011_UARTCR_EN_MASK) &&
+                /* UART is enabled */
+        (uart->uartcr & UART_PL011_UARTCR_TX_EN_MASK) &&
+                /* Transmit is enabled */
+        ((uart->uartfr & UART_PL011_UARTFR_TX_FIFO_FULL) == 0)) {
+                /* Transmit Fifo is not full */
+        return true;
+    }
+    return false;
+
+}
+
+static void _uart_pl011_write(struct _uart_pl011_reg_map_t* uart, uint8_t byte)
+{
+    uart->uartdr = byte;
+
+    return;
+}
+
+
 /* UART Bits */
 /* CTRL Register */
 #define UART_TX_EN	(1 << 0)
@@ -432,18 +478,10 @@ static int uart_cmsdk_apb_init(struct device *dev)
 #endif
 struct uart_cmsdk_apb_dev_data *const dev_data = DEV_DATA(dev);
 
-#ifdef CONFIG_CLOCK_CONTROL
-	/* Enable clock for subsystem */
-	struct device *clk =
-		device_get_binding(CONFIG_ARM_CLOCK_CONTROL_DEV_NAME);
-
-	struct uart_cmsdk_apb_dev_data * const data = DEV_DATA(dev);
-#endif /* CONFIG_CLOCK_CONTROL */
-
 	/* Set baud rate */
 //	baudrate_set(dev);
     err = _uart_pl011_set_baudrate(uart, CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC,
-                            dev_data->baud_rate);
+                            9600);
 
     if(err != UART_PL011_ERR_NONE) {
         return err;
@@ -461,6 +499,8 @@ struct uart_cmsdk_apb_dev_data *const dev_data = DEV_DATA(dev);
 	dev_cfg->irq_config_func(dev);
 #endif
 
+    _uart_pl011_enable(uart);
+
 	return 0;
 }
 
@@ -475,15 +515,15 @@ struct uart_cmsdk_apb_dev_data *const dev_data = DEV_DATA(dev);
 
 static int uart_cmsdk_apb_poll_in(struct device *dev, unsigned char *c)
 {
-	volatile struct uart_cmsdk_apb *uart = UART_STRUCT(dev);
+	volatile struct _uart_pl011_reg_map_t *uart = UART_STRUCT(dev);
 
 	/* If the receiver is not ready returns -1 */
-	if (!(uart->state & UART_RX_BF)) {
+	if (!_uart_pl011_is_readable(uart)) {
 		return -1;
 	}
 
 	/* got a character */
-	*c = (unsigned char)uart->data;
+	*c = (unsigned char)uart->uartdr;
 
 	return 0;
 }
@@ -554,15 +594,31 @@ static int uart_cmsdk_apb_fifo_fill(struct device *dev,
 static int uart_cmsdk_apb_fifo_read(struct device *dev,
 				    u8_t *rx_data, const int size)
 {
-	volatile struct uart_cmsdk_apb *uart = UART_STRUCT(dev);
+	volatile struct _uart_pl011_reg_map_t *uart = UART_STRUCT(dev);
+    int rx_nbr_bytes = 0;
 
-	/* No hardware FIFO present */
-	if (size && uart->state & UART_RX_BF) {
-		*rx_data = (unsigned char)uart->data;
-		return 1;
-	}
+    uint8_t* p_data = (uint8_t*)rx_data;
 
-	return 0;
+    if ((rx_data == NULL) || (size == 0U)) {
+        // Invalid parameters
+        return -1;
+    }
+
+    while(rx_nbr_bytes != size) {
+
+        if (!_uart_pl011_is_readable(uart)) {
+            break;
+        }
+
+        /* As UART has received one byte, the read can not
+         * return any receive error at this point */
+        (void)_uart_pl011_read(uart, p_data);
+
+        rx_nbr_bytes++;
+        p_data++;
+    }
+
+	return rx_nbr_bytes;
 }
 
 /**

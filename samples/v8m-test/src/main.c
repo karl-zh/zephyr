@@ -553,10 +553,11 @@ return;
 
 static void uart0_isr(struct device *x)
 {
-	int len = uart_fifo_read(uart0_dev, rx_buf, BUF_MAXSIZE);
+	int len = uart_poll_in(uart0_dev, rx_buf);//uart_fifo_read(uart0_dev, rx_buf, BUF_MAXSIZE);
 
 	ARG_UNUSED(x);
-	msg_dump(__func__, rx_buf, len);
+    printk("uart0 rcv %d, %d", len, rx_buf[0]);
+//	msg_dump(__func__, rx_buf, len);
 }
 
 static void uart0_init(void)
