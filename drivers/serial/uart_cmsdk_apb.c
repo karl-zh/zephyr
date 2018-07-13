@@ -11,7 +11,7 @@
  */
 
 #include <kernel.h>
-#include "uart_pl011.h"
+#include "uart_pl011_drv.h"
 #include "cmsis_compiler.h"
 
 #include <arch/cpu.h>
@@ -481,7 +481,7 @@ struct uart_cmsdk_apb_dev_data *const dev_data = DEV_DATA(dev);
 	/* Set baud rate */
 //	baudrate_set(dev);
     err = _uart_pl011_set_baudrate(uart, CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC,
-                            9600);
+                            dev_data->baud_rate);
 
     if(err != UART_PL011_ERR_NONE) {
         return err;

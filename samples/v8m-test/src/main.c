@@ -542,7 +542,7 @@ static void msg_dump(const char *s, u8_t *data, unsigned len)
 {
 	unsigned i;
 
-    uart_fifo_fill(uart0_dev, s, sizeof(u32_t) + strlen(s));
+    uart_fifo_fill(uart0_dev, s, strlen(s));
 return;
 	printk("%s: ", s);
 	for (i = 0; i < len; i++) {
@@ -553,16 +553,26 @@ return;
 
 static void uart0_isr(struct device *x)
 {
+#if 0
 	int len = uart_poll_in(uart0_dev, rx_buf);//uart_fifo_read(uart0_dev, rx_buf, BUF_MAXSIZE);
 
 	ARG_UNUSED(x);
-    printk("uart0 rcv %d, %d", len, rx_buf[0]);
+    printk("uart0 rcv %d, %d\r\n", len, rx_buf[0]);
+    #else
+    char str[64];
+	int len = uart_fifo_read(uart0_dev, rx_buf, BUF_MAXSIZE);
+
+	ARG_UNUSED(x);
+    sprintf(str,"uart0 rcv %d, %s\r\n", len, rx_buf);
+    memset(rx_buf, 0, BUF_MAXSIZE);
+    uart_fifo_fill(uart0_dev, str, sizeof(u32_t) + strlen(str));
+    #endif
 //	msg_dump(__func__, rx_buf, len);
 }
 
 static void uart0_init(void)
 {
-	uart0_dev = device_get_binding("UART_0");
+	uart0_dev = device_get_binding("UART_1");
 
 	uart_irq_callback_set(uart0_dev, uart0_isr);
 	uart_irq_rx_enable(uart0_dev);
@@ -580,7 +590,7 @@ void main(void)
     char counter = 0;
 	while (1) {
         sprintf(tx_buf, "zss %d \r\n", counter++);
-        uart_fifo_fill(uart0_dev, tx_buf, sizeof(u32_t) + strlen(tx_buf));
+        uart_fifo_fill(uart0_dev, tx_buf, strlen(tx_buf));
 
         uart0_isr(1);
 //		printk("========V2M Musca A1========\n");
