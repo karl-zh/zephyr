@@ -9,6 +9,7 @@
 #include <tfm_sst_veneers.h>
 #include <tfm_ss_core_test_veneers.h>
 #include <tfm_ss_core_test_2_veneers.h>
+#include "smsc9220_eth.h"
 
 #ifdef CONFIG_BOARD_MPS2_AN521
 #define CORE_TEST_ID_NS_THREAD          1001
@@ -497,7 +498,7 @@ static void tfm_sst_test_1001(void)
 
     /* Calls delete asset to clean up SST area for next test */
     args[0] = 11;
-    args[1] = hdl;
+    args[1] = (uint32_t)&hdl;
     err = tfm_core_test_svc(tfm_sst_veneer_delete, args);
     if (err != TFM_SST_ERR_SUCCESS) {
         printk("%s - The delete action should work correctly\n", __func__);
@@ -532,6 +533,8 @@ void main(void)
 {
 #if defined CONFIG_BOARD_MPS2_AN521
 	struct test_result_t foo;
+
+    StartEthernet();
 
 	while (1) {
 
