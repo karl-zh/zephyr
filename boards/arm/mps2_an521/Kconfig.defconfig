@@ -7,7 +7,7 @@
 if BOARD_MPS2_AN521
 
 config BOARD
-	default mps2_an521
+	default "mps2_an521"
 
 if GPIO
 
@@ -15,16 +15,16 @@ config GPIO_CMSDK_AHB
 	def_bool y
 
 config GPIO_CMSDK_AHB_PORT0
-	def_bool y
+	def_bool n
 
 config GPIO_CMSDK_AHB_PORT1
-	def_bool y
+	def_bool n
 
 config GPIO_CMSDK_AHB_PORT2
-	def_bool y
+	def_bool n
 
 config GPIO_CMSDK_AHB_PORT3
-	def_bool y
+	def_bool n
 
 endif # GPIO
 
@@ -47,23 +47,23 @@ config UART_CMSDK_APB_PORT0
 	def_bool y
 
 config UART_CMSDK_APB_PORT1
-	def_bool y
+	def_bool n
 
 config UART_CMSDK_APB_PORT2
-	def_bool y
+	def_bool n
 
 config UART_CMSDK_APB_PORT3
-	def_bool y
+	def_bool n
 
 config UART_CMSDK_APB_PORT4
-	def_bool y
+	def_bool n
 
 endif # SERIAL
 
 if WATCHDOG
 
 config WDOG_CMSDK_APB
-	def_bool y
+	def_bool n
 
 endif # WATCHDOG
 
@@ -111,16 +111,16 @@ config I2C_SBCON
 	def_bool y
 
 config I2C_SBCON_0
-	def_bool y
+	def_bool n
 
 config I2C_SBCON_1
-	def_bool y
+	def_bool n
 
 config I2C_SBCON_2
-	def_bool y
+	def_bool n
 
 config I2C_SBCON_3
-	def_bool y
+	def_bool n
 
 endif # I2C
 

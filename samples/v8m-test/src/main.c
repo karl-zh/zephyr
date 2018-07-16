@@ -475,6 +475,7 @@ static void tfm_sst_test_1001(void)
         return;
     }
 
+#if 0
     args[0] = 11;
     args[1] = asset_uuid;
     args[2] = (uint32_t)&hdl;
@@ -483,6 +484,7 @@ static void tfm_sst_test_1001(void)
         printk("%s - Get handle should return a valid asset handle\n", __func__);
         return;
     }
+#endif
 
     /* Calls create with invalid asset ID */
     args[0] = 11;
