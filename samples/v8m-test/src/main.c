@@ -535,16 +535,23 @@ static void tfm_sign_call(void)
 {
     enum tfm_sst_err_t err;
     int32_t args[4] = {0};
+    char result_buffer[460] = {0};
+    jwt_data.buffer = result_buffer;
+    sprintf(result_buffer, "tfm_sign_call test");
+    jwt_data.buffer_size = sizeof(result_buffer);
+    jwt_data.out_size = sizeof(result_buffer);
+    jwt_data.exp = 1530312026;
+    jwt_data.iat = 1530308426;
+    jwt_data.aud = "iot-work-199419";
     args[0] = 10;
     args[1] = 0;
-    jwt_data.buffer = "sign test";
-    jwt_data.buffer_size = strlen(jwt_data.buffer);
     args[2] = 0;
     args[3] = &jwt_data;
     printk("%s - test started\n", __func__);
     err = tfm_core_test_svc(tfm_veneer_jwt_sign, args);
     if (err != TFM_SST_ERR_SUCCESS) {
-        printk("%s - The jwt sign action should work correctly\n", __func__);
+        printk("%s - The jwt sign action should work correctly, err = %d\n",
+            __func__, err);
         return;
     }
 
