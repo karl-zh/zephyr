@@ -649,7 +649,21 @@ void main(void)
 	if (err == 0) {
 		printk("token: %s\n\n", buffer);
 	}
-	printk("After the token: %ld ticks\n", b - a);
+	k_sleep(K_MSEC(1000));
+	int len = strlen(buffer);
+	printk("\n\n(%d)\n\n", len);
+	char *pos = buffer;
+	while (len > 0) {
+		char tmp[11];
+		k_sleep(K_MSEC(1000));
+		tmp[10] = 0;
+		strncpy(tmp, pos, 10);
+		printk("%s", tmp);
+		int tlen = strlen(tmp);
+		len -= tlen;
+		pos += tlen;
+	}
+	printk("\n\nAfter the token: %ld ticks\n", b - a);
 	while (1) {
 		k_sleep(K_MSEC(1000));
 	}
