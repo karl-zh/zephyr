@@ -529,6 +529,28 @@ static void tfm_sst_test_1002(void)
 }
 #endif
 
+
+struct tfm_sst_jwt_t jwt_data;
+static void tfm_sign_call(void)
+{
+    enum tfm_sst_err_t err;
+    int32_t args[4] = {0};
+    args[0] = 10;
+    args[1] = 0;
+    jwt_data.buffer = "sign test";
+    jwt_data.buffer_size = strlen(jwt_data.buffer);
+    args[2] = 0;
+    args[3] = &jwt_data;
+    printk("%s - test started\n", __func__);
+    err = tfm_core_test_svc(tfm_veneer_jwt_sign, args);
+    if (err != TFM_SST_ERR_SUCCESS) {
+        printk("%s - The jwt sign action should work correctly\n", __func__);
+        return;
+    }
+
+    printk("%s - test passed\n", __func__);
+}
+
 void main(void)
 {
 #if defined CONFIG_BOARD_MPS2_AN521
@@ -539,7 +561,8 @@ void main(void)
 	while (1) {
 
 		printk("=============================================================\n");
-		/* core tests */
+#if 0
+/* core tests */
 		tfm_core_test_ns_thread(&foo);
 		k_sleep(K_MSEC(1000));
 		tfm_core_test_ns_svc(&foo);
@@ -568,8 +591,10 @@ void main(void)
 		/* sst tests */
 		tfm_sst_test_1001();
 		k_sleep(K_MSEC(1000));
+#endif
 		tfm_sst_test_1002();
 		k_sleep(K_MSEC(1000));
+        tfm_sign_call();
 	}
 #elif defined CONFIG_BOARD_MUSCA_A
     char counter = 0;
