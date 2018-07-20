@@ -637,6 +637,10 @@ void main(void)
 	args[1] = 0;
 	jwt_cmd.buffer = buffer;
 	jwt_cmd.buffer_size = (sizeof(buffer));
+	jwt_cmd.iat = 1532120018;
+	jwt_cmd.exp = jwt_cmd.iat + 60 * 60;
+	jwt_cmd.aud = "simple-demo";
+	jwt_cmd.aud_len = strlen(jwt_cmd.aud);
 	args[2] = 0;
 	args[3] = &jwt_cmd;
 	err = tfm_core_test_svc(tfm_veneer_jwt_sign, args);
