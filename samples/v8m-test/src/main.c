@@ -5,12 +5,13 @@
  */
 
 #include <zephyr.h>
+#include <string.h>
 #include <misc/printk.h>
 #include <tfm_sst_veneers.h>
-#include <tfm_ss_core_test_veneers.h>
-#include <tfm_ss_core_test_2_veneers.h>
+//#include <tfm_ss_core_test_veneers.h>
+//#include <tfm_ss_core_test_2_veneers.h>
 
-#ifdef CONFIG_BOARD_MPS2_AN521
+/* #ifdef CONFIG_BOARD_MPS2_AN521 */
 #define CORE_TEST_ID_NS_THREAD          1001
 #define CORE_TEST_ID_NS_SVC             1002
 #define CORE_TEST_ID_CHECK_INIT         1003
@@ -27,6 +28,9 @@
 #define CORE_TEST_RETURN_ERROR(x) return (((__LINE__) << 16) | x)
 #define CORE_TEST_ERROR_GET_EXTRA(x) (x >> 16)
 #define CORE_TEST_ERROR_GET_CODE(x) (x & 0xFFFF)
+
+/* No idea. */
+#define TFM_SERVICE_SPECIFIC_ERROR_MIN 1234
 
 enum core_test_errno_t {
     CORE_TEST_ERRNO_SUCCESS = 0,
@@ -121,6 +125,7 @@ __attribute__ ((naked)) int32_t tfm_core_test_svc(void *fn_ptr, int32_t args[])
     __asm__ volatile ("BX LR");
 }
 
+#if 0
 __attribute__ ((naked)) int32_t tfm_core_test_multiple_calls_svc(void *fn_ptr,
                                                                  int32_t args[])
 {
@@ -609,6 +614,8 @@ static void uart1_init(void)
 	printk("%s() done\n", __func__);
 }
 
+static char buffer[512];
+
 void main(void)
 {
 	u32_t *size = (u32_t *)tx_buf;
@@ -616,6 +623,39 @@ void main(void)
 	printk("Sample app running on: %s\n", CONFIG_ARCH);
 	// tfm_core_test_ns_thread(&foo);
 
+	uint32_t a = k_cycle_get_32();
+	for (int i = 0; i < 10000; i++)
+		__asm__ volatile("nop" : : : "memory");
+	uint32_t b = k_cycle_get_32();
+	printk("time %ld\n", b - a);
+
+	a = b;
+	struct tfm_sst_jwt_t jwt_cmd;
+	enum psa_sst_err_t err;
+	uint32_t args[4] = {0};
+	args[0] = 10;
+	args[1] = 0;
+	jwt_cmd.buffer = buffer;
+	jwt_cmd.buffer_size = (sizeof(buffer));
+	args[2] = 0;
+	args[3] = &jwt_cmd;
+	err = tfm_core_test_svc(tfm_veneer_jwt_sign, args);
+	b = k_cycle_get_32();
+	printk("result: %d, %x %x\n", err, buffer[0], buffer[1]);
+	if (err == 0) {
+		printk("token: %s\n\n", buffer);
+	}
+	printk("After the token: %ld ticks\n", b - a);
+	while (1) {
+		k_sleep(K_MSEC(1000));
+	}
+	/*
+	if (err != TFM_SST_ERR_SUCCESS) {
+		printk("Sign didn't work");
+	}
+	*/
+
+#if 0
 	uart0_init();
 	uart1_init();
 	char counter = 0;
@@ -631,6 +671,7 @@ void main(void)
 		//		printk("Print Counter : 0x%02x\n", counter++);
 		k_sleep(K_MSEC(1000));
 	}
+#endif
 }
 
 #else
