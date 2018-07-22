@@ -317,8 +317,8 @@ struct uart_cmsdk_apb_dev_data *const dev_data = DEV_DATA(dev);
 	_uart_pl011_disable(uart);
 
 	/* Set baud rate */
-//	err = _uart_pl011_set_baudrate(uart, CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC,
-//					dev_data->baud_rate);
+	err = _uart_pl011_set_baudrate(uart, CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC,
+					dev_data->baud_rate);
 
  //   if(err != UART_PL011_ERR_NONE) {
   //      return err;
@@ -711,7 +711,7 @@ static void uart_cmsdk_apb_irq_config_func_0(struct device *dev)
 
 #endif /* CONFIG_UART_CMSDK_APB_PORT0 */
 
-#ifdef CONFIG_UART_CMSDK_APB_PORx
+#ifdef CONFIG_UART_CMSDK_APB_PORT1
 
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
 static void uart_cmsdk_apb_irq_config_func_1(struct device *dev);
