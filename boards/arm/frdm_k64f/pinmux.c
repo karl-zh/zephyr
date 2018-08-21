@@ -39,6 +39,21 @@ static int frdm_k64f_pinmux_init(struct device *dev)
 	pinmux_pin_set(portb, 17, PORT_PCR_MUX(kPORT_MuxAlt3));
 #endif
 
+#ifdef CONFIG_UART_MCUX_1
+	/* UART1 RX, TX */
+	pinmux_pin_set(portb, 18, PORT_PCR_MUX(kPORT_MuxAsGpio));
+	pinmux_pin_set(portc, 3, PORT_PCR_MUX(kPORT_MuxAlt3));
+	pinmux_pin_set(portc, 4, PORT_PCR_MUX(kPORT_MuxAlt3));
+#endif
+
+#ifdef CONFIG_UART_MCUX_2
+	/* UART2 RX, TX */
+	pinmux_pin_set(portd, 0, PORT_PCR_MUX(kPORT_MuxAlt3));
+	pinmux_pin_set(portd, 1, PORT_PCR_MUX(kPORT_MuxAlt3));
+	pinmux_pin_set(portd, 2, PORT_PCR_MUX(kPORT_MuxAlt3));
+	pinmux_pin_set(portd, 3, PORT_PCR_MUX(kPORT_MuxAlt3));
+#endif
+
 #ifdef CONFIG_UART_MCUX_3
 	/* UART3 RX, TX */
 	pinmux_pin_set(portc, 16, PORT_PCR_MUX(kPORT_MuxAlt3));
