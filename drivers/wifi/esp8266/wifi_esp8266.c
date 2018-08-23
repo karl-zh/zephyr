@@ -10,6 +10,7 @@
 
 #define _DEFAULT_SOURCE
 #include <stdio.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <misc/printk.h>
@@ -67,6 +68,7 @@ extern char *strtok_r(char *, const char *, char **);
 #define EVENT_GOT_IP	 BIT(0)
 #define EVENT_CONNECT	 BIT(1)
 #define EVENT_DISCONNECT BIT(2)
+#define EVENT_SNTP       BIT(3)
 
 struct socket_data {
 	struct net_context	*context;
@@ -181,8 +183,8 @@ static int esp8266_connect(struct net_context *context,
 		type = type_udp;
 	}
 
-	len = sprintf(foo_data.tx_buf, "AT+CIPSTART=%d,%s,%s,%d\r\n",
-			id, type, data->tmp, port);
+	len = sprintf(foo_data.tx_buf, "AT+CIPSTART=%s,%s,%d\r\n",
+			type, data->tmp, port);
 	foo_data.tx_head = 0;
 	foo_data.tx_tail = len;
 	esp8266_set_request_state(ESP8266_ECHO);
@@ -213,7 +215,7 @@ static struct net_offload esp8266_offload = {
 	.get            = esp8266_get,
 	.bind		= esp8266_bind,
 	.listen		= NULL,
-	.connect	= NULL,
+	.connect	= esp8266_connect,
 	.accept		= NULL,
 	.send		= NULL,
 	.sendto		= NULL,
@@ -235,7 +237,6 @@ static void esp8266_uart_send(struct device *dev)
 		count = uart_fifo_fill(dev, foo_data.tx_buf + foo_data.tx_head,
 				       foo_data.tx_tail - foo_data.tx_head);
 		foo_data.tx_head += count;
-        printk("uart_send count =%d\r\n", count);
         #else
         uart_fifo_fill(dev, foo_data.tx_buf,
 				       foo_data.tx_tail);
@@ -399,6 +400,14 @@ static void esp8266_work_handler(struct k_work *work)
 		if (foo_data.transaction |= ESP8266_IDLE) {
 			k_delayed_work_submit(&foo_data.work, 500);
 		} else {
+            len = sprintf(foo_data.tx_buf, "AT+CIPSNTPCFG=1,8\r\n");
+            foo_data.tx_head = 0;
+            foo_data.tx_tail = len;
+            esp8266_set_request_state(ESP8266_ECHO);
+            uart_irq_tx_enable(foo_data.uart_dev);
+            esp8266_uart_send(foo_data.uart_dev);
+            k_sem_take(&transfer_complete, 1000);
+
 			esp8266_set_request_state(ESP8266_GET_IP);
 			len = sprintf(foo_data.tx_buf, "AT+CIPSTA_CUR?\r\n");
 			foo_data.tx_head = 0;
@@ -406,6 +415,7 @@ static void esp8266_work_handler(struct k_work *work)
 			uart_irq_tx_enable(foo_data.uart_dev);
             esp8266_uart_send(foo_data.uart_dev);
 			k_sem_take(&transfer_complete, 1000);
+            foo_data.event |= EVENT_SNTP;
 
 			foo_data.event &= ~EVENT_GOT_IP;
 		}
@@ -422,6 +432,15 @@ static void esp8266_work_handler(struct k_work *work)
 		foo_data.event &= ~EVENT_DISCONNECT;
 		foo_data.connected = 0;
 	}
+	if (foo_data.event & EVENT_SNTP) {
+
+	    len = sprintf(foo_data.tx_buf, "AT+CIPSNTPTIME?\r\n");
+		foo_data.tx_head = 0;
+		foo_data.tx_tail = len;
+		uart_irq_tx_enable(foo_data.uart_dev);
+        esp8266_uart_send(foo_data.uart_dev);
+		k_sem_take(&transfer_complete, 1000);
+    }
 }
 
 static void esp8266_iface_init(struct net_if *iface)
@@ -511,6 +530,20 @@ void parse_ip(void)
 	}
 }
 
+void parse_sntp(void)
+{
+    struct tm stm;
+	printk("ESP8266 parse_sntp %s\n", rx_buf);
+    if (strstr(rx_buf, "1970") > 0) {
+        printk("ESP8266 get ntp again, trans=%d\r\n", foo_data.transaction);
+        foo_data.event |= EVENT_SNTP;
+//        if (foo_data.transaction == ESP8266_IDLE)
+            k_delayed_work_submit(&foo_data.work, 200);
+    } else {
+        foo_data.event &= ~EVENT_SNTP;
+    }
+}
+
 void scan_line(void)
 {
 	if (rx_buf[rx_last - 1] == '\n') {
@@ -529,6 +562,8 @@ void scan_line(void)
 		} else if (strstr(rx_buf, "+CWLAP")) {
 			parse_scan();
 			scan_count++;
+        } else if (strstr(rx_buf, "+CIPSNTPTIME")) {
+            parse_sntp();
 		} else if (strstr(rx_buf, "WIFI GOT IP")) {
 			foo_data.event |= EVENT_GOT_IP;
 			printk("EVENT_GOT_IP");
