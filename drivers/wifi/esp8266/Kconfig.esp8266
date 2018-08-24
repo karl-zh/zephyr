@@ -10,7 +10,7 @@ if WIFI_ESP8266
 
 config WIFI_ESP8266_UART_DEVICE
 	string "Serial device used for ESP8266 connection"
-	default "UART_1"
+	default "UART_0"
 	help
 	Specify the device name of the serial device to which ESP8266 is
 	connected.
@@ -31,7 +31,7 @@ config WIFI_ESP8266_GPIO_ENABLE_PIN
 
 config WIFI_ESP8266_BAUD_RATE
 	int "Baud rate used for communication to ESP8266"
-	default 9600
+	default 115200
 	help
 	This option defines the baud rate used for communication to/from
 	the ESP8266

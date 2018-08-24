@@ -526,6 +526,15 @@ static void tfm_sst_test_1002(void)
 }
 #endif
 
+#include <uart.h>
+#include "net/wifi_mgmt.h"
+
+static struct device *uart0_dev;
+static struct device *uart1_dev;
+static struct device *esp8266_dev;
+static char rx_buf0[128];
+static char rx_buf1[128];
+
 void main(void)
 {
 #if defined CONFIG_BOARD_MPS2_AN521
@@ -568,6 +577,25 @@ void main(void)
 	}
 #elif defined CONFIG_BOARD_MUSCA_A
     char counter = 0;
+    struct net_wifi_mgmt_offload * esp8266_api;
+    struct wifi_connect_req_params esp8266_params;
+
+    uart0_dev = device_get_binding("UART_0");
+    esp8266_dev = device_get_binding("ESP8266");
+      if (!(esp8266_dev && uart0_dev)) {
+        printk("problem with device\n");
+		return;
+	}
+      uart_irq_rx_enable(uart0_dev);
+      esp8266_params.ssid= "NETGEAR22";
+      esp8266_params.ssid_length = strlen(esp8266_params.ssid);
+      esp8266_params.psk = "aquaticphoenix998";
+      esp8266_params.psk_length = strlen(esp8266_params.psk);
+      esp8266_params.security = WIFI_SECURITY_TYPE_PSK;
+      esp8266_api = (struct net_wifi_mgmt_offload *)esp8266_dev->driver_api;
+      esp8266_api->connect(esp8266_dev, &esp8266_params);
+
+
 	while (1) {
 		printk("========V2M Musca A1========\n");
 		printk("Print Counter : 0x%02x\n", counter++);

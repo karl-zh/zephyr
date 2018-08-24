@@ -221,6 +221,28 @@ static struct net_offload esp8266_offload = {
 	.put		= esp8266_put,
 };
 
+static void esp8266_uart_send(struct device *dev)
+{
+	int count;
+
+	while(foo_data.tx_head < foo_data.tx_tail){//uart_irq_tx_ready(dev)){
+        #if 1
+		if (foo_data.tx_head == foo_data.tx_tail) {
+			uart_irq_tx_disable(dev);
+			break;
+		}
+		/* try to send some data */
+		count = uart_fifo_fill(dev, foo_data.tx_buf + foo_data.tx_head,
+				       foo_data.tx_tail - foo_data.tx_head);
+		foo_data.tx_head += count;
+        printk("uart_send count =%d\r\n", count);
+        #else
+        uart_fifo_fill(dev, foo_data.tx_buf,
+				       foo_data.tx_tail);
+        #endif
+	}
+}
+
 static int esp8266_mgmt_echo(struct device *dev)
 {
 	int len;
@@ -232,10 +254,12 @@ static int esp8266_mgmt_echo(struct device *dev)
 
 	uart_irq_rx_enable(dev);
 	uart_irq_tx_enable(dev);
+    esp8266_uart_send(dev);
+
 	k_sem_take(&transfer_complete, K_FOREVER);
 
 	return 0;
-};
+}
 
 static int esp8266_mgmt_scan(struct device *dev, scan_result_cb_t cb)
 {
@@ -326,8 +350,8 @@ static int esp8266_mgmt_connect(struct device *dev,
 		len += sprintf(&foo_data.tx_buf[len], "\",\"");
 		memcpy(&foo_data.tx_buf[len], params->psk,
 		       params->psk_length);
-		len += params->ssid_length;
-		len += sprintf(&foo_data.tx_buf[len], "\"\r\n");
+		len += params->psk_length;
+        len += sprintf(&foo_data.tx_buf[len], "\"\r\n");
 	} else {
 		len = sprintf(foo_data.tx_buf, "AT+CWJAP_CUR=\"");
 		memcpy(&foo_data.tx_buf[len], params->ssid,
@@ -341,6 +365,7 @@ static int esp8266_mgmt_connect(struct device *dev,
 	esp8266_set_request_state(ESP8266_CONNECT);
 	uart_irq_rx_enable(foo_data.uart_dev);
 	uart_irq_tx_enable(foo_data.uart_dev);
+    esp8266_uart_send(foo_data.uart_dev);
 
 	k_sem_take(&transfer_complete, K_FOREVER);
 	if (foo_data.resp == ESP8266_OK) {
@@ -379,6 +404,7 @@ static void esp8266_work_handler(struct k_work *work)
 			foo_data.tx_head = 0;
 			foo_data.tx_tail = len;
 			uart_irq_tx_enable(foo_data.uart_dev);
+            esp8266_uart_send(foo_data.uart_dev);
 			k_sem_take(&transfer_complete, 1000);
 
 			foo_data.event &= ~EVENT_GOT_IP;
@@ -505,6 +531,7 @@ void scan_line(void)
 			scan_count++;
 		} else if (strstr(rx_buf, "WIFI GOT IP")) {
 			foo_data.event |= EVENT_GOT_IP;
+			printk("EVENT_GOT_IP");
 			if (foo_data.transaction == ESP8266_IDLE) {
 				k_delayed_work_submit(&foo_data.work, 0);
 			}
@@ -604,17 +631,6 @@ static void esp8266_uart_isr(struct device *dev)
 
 		esp8266_parse_rx();
 	}
-
-	while(uart_irq_tx_ready(dev)){
-		if (foo_data.tx_head == foo_data.tx_tail) {
-			uart_irq_tx_disable(dev);
-			break;
-		}
-		/* try to send some data */
-		count = uart_fifo_fill(dev, foo_data.tx_buf + foo_data.tx_head,
-				       foo_data.tx_tail - foo_data.tx_head);
-		foo_data.tx_head += count;
-	}
 }
 
 static int esp8266_init(struct device *dev)
@@ -636,41 +652,46 @@ static int esp8266_init(struct device *dev)
 	uart_irq_callback_set(drv_data->uart_dev, esp8266_uart_isr);
 
 	uart_irq_rx_enable(drv_data->uart_dev);
+#if 0
 	drv_data->gpio_dev = device_get_binding(CONFIG_WIFI_ESP8266_GPIO_DEVICE);
-	if (!drv_data->gpio_dev) {
+if (!drv_data->gpio_dev) {
 		SYS_LOG_ERR("gpio device is not found: %s",
 			    CONFIG_WIFI_ESP8266_GPIO_DEVICE);
 		return -EINVAL;
 	}
-
-	gpio_pin_configure(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN,
-			   GPIO_DIR_OUT);
+#endif
+//	gpio_pin_configure(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN,
+//			   GPIO_DIR_OUT);
 
 	/* disable device until we want to configure it*/
-	gpio_pin_write(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN, 0);
+//	gpio_pin_write(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN, 0);
 
-	esp8266_set_request_state(ESP8266_POWER_UP);
+//	esp8266_set_request_state(ESP8266_POWER_UP);
 
 	/* enable device and check for ready */
 	k_sleep(100);
-	gpio_pin_write(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN, 1);
+//	gpio_pin_write(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN, 1);
 
 	k_sleep(1000);
-	k_sem_take(&transfer_complete, 3000);
-	if (!foo_data.initialized) {
+//	k_sem_take(&transfer_complete, 3000);
+#if 0
+if (!foo_data.initialized) {
 		SYS_LOG_ERR("esp8266 never became ready\n");
 		/* disable device until we want to configure it*/
 		gpio_pin_write(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN, 0);
 		return -EINVAL;
 	}
-
 	k_sleep(200);
+#endif
 	esp8266_mgmt_echo(drv_data->uart_dev);
 	k_sleep(200);
 
 	len = sprintf(foo_data.tx_buf, "AT+CIPAPMAC_CUR?\r\n");
 	foo_data.tx_head = 0;
 	foo_data.tx_tail = len;
+    
+    esp8266_uart_send(drv_data->uart_dev);
+    foo_data.uart_dev = drv_data->uart_dev;
 	esp8266_set_request_state(ESP8266_GET_MAC);
 	uart_irq_tx_enable(foo_data.uart_dev);
 	k_sem_take(&transfer_complete, 3000);
