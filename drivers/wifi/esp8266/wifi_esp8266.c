@@ -530,19 +530,77 @@ void parse_ip(void)
 	}
 }
 
+static int64_t time_base;
+
 void parse_sntp(void)
 {
-    struct tm stm;
+    static char m2n[13][4]={
+        " ","Jan","Feb","Mar","Apr","May","Jun",
+            "Jul","Aug","Sep","Oct","Nov","Dec"};
+
 	printk("ESP8266 parse_sntp %s\n", rx_buf);
     if (strstr(rx_buf, "1970") > 0) {
         printk("ESP8266 get ntp again, trans=%d\r\n", foo_data.transaction);
         foo_data.event |= EVENT_SNTP;
 //        if (foo_data.transaction == ESP8266_IDLE)
             k_delayed_work_submit(&foo_data.work, 200);
-    } else {
+    } else { //+CIPSNTPTIME:Wed Aug 22 21:53:33 2018
+        int64_t stamp;
+        u64_t epoch_time = 0;
+        struct tm now_tm;
+        strptime(rx_buf + 21, "%d %H:%M:%S %Y",&now_tm);
+        for (now_tm.tm_mon = 1; now_tm.tm_mon <= 12; now_tm.tm_mon++)
+            if (strncmp(m2n[now_tm.tm_mon],rx_buf + 17, 3) == 0)
+                break;
+
+        now_tm.tm_year = atoi(rx_buf + 33);
+
+        printk("  year: %d\r\n", now_tm.tm_year);
+        printk("  mon : %d\r\n", now_tm.tm_mon);
+        printk("  day : %d\r\n", now_tm.tm_mday);
+        printk("  hour: %d\r\n", now_tm.tm_hour);
+        printk("  min : %d\r\n", now_tm.tm_min);
+        printk("  sec : %d\r\n", now_tm.tm_sec);
+
+        epoch_time = mktime(&now_tm);
+        stamp = k_uptime_get();
+        printk("stamp: %lld\r\n", stamp);
+        printk("time: %lld\r\n", epoch_time);
+        printk("time1k: %lld\r\n", epoch_time * MSEC_PER_SEC);
+        time_base = epoch_time * MSEC_PER_SEC - stamp;
+        printk("base: %lld\r\n", time_base);
+        /* Convert time to make sure. */
+        time_t now = epoch_time;
+        gmtime_r(&now, &now_tm);
+        printk("  year: %d\r\n", now_tm.tm_year);
+        printk("  mon : %d\r\n", now_tm.tm_mon);
+        printk("  day : %d\r\n", now_tm.tm_mday);
+        printk("  hour: %d\r\n", now_tm.tm_hour);
+        printk("  min : %d\r\n", now_tm.tm_min);
+        printk("  sec : %d\r\n", now_tm.tm_sec);
         foo_data.event &= ~EVENT_SNTP;
     }
 }
+
+/* Zephyr implementation of POSIX `time`.  Has to be called k_time
+ * because time is already taken by newlib.  The clock will be set by
+ * the SNTP client when it receives the time.  We make no attempt to
+ * adjust it smoothly, and it should not be used for measuring
+ * intervals.  Use `k_uptime_get()` directly for that.   Also the
+ * time_t defined by newlib is a signed 32-bit value, and will
+ * overflow in 2037. */
+time_t k_time(time_t *ptr)
+{
+	s64_t stamp;
+	time_t now;
+	stamp = k_uptime_get();
+	now = (time_t)((stamp + time_base) / 1000);
+	if (ptr) {
+		*ptr = now;
+	}
+	return now;
+}
+
 
 void scan_line(void)
 {
