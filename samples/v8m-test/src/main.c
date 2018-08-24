@@ -9,6 +9,7 @@
 #include <tfm_sst_veneers.h>
 #include <tfm_ss_core_test_veneers.h>
 #include <tfm_ss_core_test_2_veneers.h>
+#include <wifi_esp8266.h>
 
 #ifdef CONFIG_BOARD_MPS2_AN521
 #define CORE_TEST_ID_NS_THREAD          1001
@@ -578,7 +579,9 @@ void main(void)
 #elif defined CONFIG_BOARD_MUSCA_A
     char counter = 0;
     struct net_wifi_mgmt_offload * esp8266_api;
+    struct esp8266_data * esp8266_driver_data;
     struct wifi_connect_req_params esp8266_params;
+    struct net_if iface;
 
     uart0_dev = device_get_binding("UART_0");
     esp8266_dev = device_get_binding("ESP8266");
@@ -586,15 +589,20 @@ void main(void)
         printk("problem with device\n");
 		return;
 	}
-      uart_irq_rx_enable(uart0_dev);
-      esp8266_params.ssid= "NETGEAR22";
-      esp8266_params.ssid_length = strlen(esp8266_params.ssid);
-      esp8266_params.psk = "aquaticphoenix998";
-      esp8266_params.psk_length = strlen(esp8266_params.psk);
-      esp8266_params.security = WIFI_SECURITY_TYPE_PSK;
-      esp8266_api = (struct net_wifi_mgmt_offload *)esp8266_dev->driver_api;
-      esp8266_api->connect(esp8266_dev, &esp8266_params);
+    uart_irq_rx_enable(uart0_dev);
 
+    esp8266_params.ssid= "NETGEAR22";
+    esp8266_params.ssid_length = strlen(esp8266_params.ssid);
+    esp8266_params.psk = "aquaticphoenix998";
+    esp8266_params.psk_length = strlen(esp8266_params.psk);
+    esp8266_params.security = WIFI_SECURITY_TYPE_PSK;
+    esp8266_api = (struct net_wifi_mgmt_offload *)esp8266_dev->driver_api;
+    esp8266_driver_data = (struct esp8266_data *)esp8266_dev->driver_data;
+    esp8266_api->iface_api.init(&iface);
+    esp8266_api->connect(esp8266_dev, &esp8266_params);
+
+    while(!esp8266_driver_data->transparent)
+        k_sleep(K_MSEC(1000));
 
 	while (1) {
 		printk("========V2M Musca A1========\n");

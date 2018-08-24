@@ -22,15 +22,7 @@
 #include <net/net_offload.h>
 #include <uart.h>
 #include <gpio.h>
-#include <net/net_pkt.h>
-#include <net/net_if.h>
-#include <net/net_l2.h>
-#include <net/net_context.h>
-#include <net/net_offload.h>
-#include <net/wifi_mgmt.h>
-
-#define ESP8266_MAX_CONNECTIONS	4
-#define ESP8266_BUF_SIZE	128
+#include <wifi_esp8266.h>
 
 static char rx_buf[512];
 static size_t rx_last;
@@ -64,61 +56,6 @@ K_SEM_DEFINE(transfer_complete, 0, 1);
 K_MUTEX_DEFINE(dev_mutex);
 
 extern char *strtok_r(char *, const char *, char **);
-
-#define EVENT_GOT_IP	 BIT(0)
-#define EVENT_CONNECT	 BIT(1)
-#define EVENT_DISCONNECT BIT(2)
-#define EVENT_SNTP       BIT(3)
-#define EVENT_TCP        BIT(4)
-
-struct socket_data {
-	struct net_context	*context;
-	net_context_connect_cb_t	connect_cb;
-	net_tcp_accept_cb_t		accept_cb;
-	net_context_send_cb_t		send_cb;
-	net_context_recv_cb_t		recv_cb;
-	void			*connect_data;
-	void			*send_data;
-	void			*recv_data;
-	void			*accept_data;
-	struct net_pkt		*rx_pkt;
-	struct net_buf		*pkt_buf;
-	int			ret;
-	struct	k_sem		wait_sem;
-	char tmp[16];
-};
-
-struct esp8266_data {
-	struct net_if *iface;
-	unsigned char mac[6];
-
-	/* max sockets */
-	struct socket_data socket_data[4];
-	u8_t sock_map;
-
-	/* fifos + accounting info */
-	u8_t rx_buf[ESP8266_BUF_SIZE];	/* circular due to parsing */
-	u8_t tx_buf[ESP8266_BUF_SIZE];
-	u8_t rx_head;
-	u8_t rx_tail;
-	u8_t rx_full;
-	size_t tx_head;
-	size_t tx_tail;
-
-	struct k_delayed_work work;
-	u8_t event;
-
-	int transaction;
-	int resp;
-	int initialized;
-	int connected;
-
-	/* delayed work requests */
-
-	/* device management */
-	struct device *uart_dev;
-	struct device *gpio_dev;
-};
 
 static struct esp8266_data foo_data;
 
@@ -487,6 +424,7 @@ static void esp8266_work_handler(struct k_work *work)
     if (foo_data.event & EVENT_TCP) {
         len = sprintf(foo_data.tx_buf, "AT+CIPSTART=%s,%s,%d\r\n",
                 "\"TCP\"", "\"mqtt.googleapis.com\"", 8883);
+//                "\"TCP\"", "\"111.231.135.210\"", 6667);
         foo_data.tx_head = 0;
         foo_data.tx_tail = len;
         esp8266_set_request_state(ESP8266_ECHO);
@@ -516,6 +454,7 @@ static void esp8266_work_handler(struct k_work *work)
         k_sem_take(&transfer_complete, K_FOREVER);
 
         foo_data.event &= ~EVENT_TCP;
+        foo_data.transparent = true;
     }
 }
 
@@ -690,6 +629,8 @@ void scan_line(void)
 			esp8266_clear_request_state();
 			k_sem_give(&transfer_complete);
 		} else if (strstr(rx_buf, "ERROR")) {
+		    printk("ERROR Occurred\n");
+		    foo_data.transparent = false;
 			foo_data.resp = ESP8266_ERROR;
 			esp8266_clear_request_state();
 			k_sem_give(&transfer_complete);
@@ -703,12 +644,14 @@ void scan_line(void)
         } else if (strstr(rx_buf, "+CIPSNTPTIME")) {
             parse_sntp();
 		} else if (strstr(rx_buf, "WIFI GOT IP")) {
+		    foo_data.transparent = false;
 			foo_data.event |= EVENT_GOT_IP;
-			printk("EVENT_GOT_IP");
+			printk("EVENT_GOT_IP\n");
 			if (foo_data.transaction == ESP8266_IDLE) {
 				k_delayed_work_submit(&foo_data.work, 0);
 			}
 		} else if (strstr(rx_buf, "WIFI DISCONNECT")) {
+		    foo_data.transparent = false;
 			foo_data.event |= EVENT_DISCONNECT;
 			k_delayed_work_submit(&foo_data.work, 0);
 		} else if (strstr(rx_buf, "WIFI CONNECTED")) {
@@ -724,12 +667,6 @@ void scan_line(void)
 			printk("busy p");
         } else if (strstr(rx_buf, "CONNECT")) {
 			printk("Connect to Server\n");
-        } else if (strstr(rx_buf, ">")
-                && foo_data.transaction == ESP8266_SEND_DATA) {
-			foo_data.resp = ESP8266_OK;
-			esp8266_clear_request_state();
-			k_sem_give(&transfer_complete);
-            printk ("Enter the TP mode\n");
 		} else {
 		    printk("unknown return %s\n", rx_buf);
         }
@@ -850,6 +787,7 @@ if (!drv_data->gpio_dev) {
 //	gpio_pin_write(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN, 0);
 
 //	esp8266_set_request_state(ESP8266_POWER_UP);
+    foo_data.transparent = false;
 
 	/* enable device and check for ready */
 	len = sprintf(foo_data.tx_buf, "+++");
