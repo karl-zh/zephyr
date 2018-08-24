@@ -69,6 +69,7 @@ extern char *strtok_r(char *, const char *, char **);
 #define EVENT_CONNECT	 BIT(1)
 #define EVENT_DISCONNECT BIT(2)
 #define EVENT_SNTP       BIT(3)
+#define EVENT_TCP        BIT(4)
 
 struct socket_data {
 	struct net_context	*context;
@@ -120,6 +121,28 @@ struct esp8266_data {
 };
 
 static struct esp8266_data foo_data;
+
+static void esp8266_uart_send(struct device *dev)
+{
+	int count;
+
+	while(foo_data.tx_head < foo_data.tx_tail){//uart_irq_tx_ready(dev)){
+        #if 1
+		if (foo_data.tx_head == foo_data.tx_tail) {
+			uart_irq_tx_disable(dev);
+			break;
+		}
+		/* try to send some data */
+		count = uart_fifo_fill(dev, foo_data.tx_buf + foo_data.tx_head,
+				       foo_data.tx_tail - foo_data.tx_head);
+		foo_data.tx_head += count;
+        printk("uart_send =%s\r\n", foo_data.tx_buf);
+        #else
+        uart_fifo_fill(dev, foo_data.tx_buf,
+				       foo_data.tx_tail);
+        #endif
+	}
+}
 
 void esp8266_set_request_state(int trans)
 {
@@ -196,6 +219,47 @@ static int esp8266_connect(struct net_context *context,
 	return 0;
 }
 
+static int esp8266_tcp_connect()
+{
+	int len;
+	len = sprintf(foo_data.tx_buf, "AT+CIPSTART=%s,%s,%d\r\n",
+			"\"TCP\"", "\"mqtt.googleapis.com\"", 8883);
+	foo_data.tx_head = 0;
+	foo_data.tx_tail = len;
+	esp8266_set_request_state(ESP8266_ECHO);
+
+	uart_irq_rx_enable(foo_data.uart_dev);
+	uart_irq_tx_enable(foo_data.uart_dev);
+    esp8266_uart_send(foo_data.uart_dev);
+	k_sem_take(&transfer_complete, K_FOREVER);
+
+
+	len = sprintf(foo_data.tx_buf, "AT+CIPMODE=1\r\n");
+	foo_data.tx_head = 0;
+	foo_data.tx_tail = len;
+	esp8266_set_request_state(ESP8266_ECHO);
+
+	uart_irq_rx_enable(foo_data.uart_dev);
+	uart_irq_tx_enable(foo_data.uart_dev);
+    esp8266_uart_send(foo_data.uart_dev);
+	k_sem_take(&transfer_complete, K_FOREVER);
+
+	len = sprintf(foo_data.tx_buf, "AT+CIPSEND\r\n");
+	foo_data.tx_head = 0;
+	foo_data.tx_tail = len;
+	esp8266_set_request_state(ESP8266_SEND_DATA);
+
+	uart_irq_rx_enable(foo_data.uart_dev);
+	uart_irq_tx_enable(foo_data.uart_dev);
+    esp8266_uart_send(foo_data.uart_dev);
+	k_sem_take(&transfer_complete, K_FOREVER);
+
+    foo_data.event &= ~EVENT_TCP;
+
+	return 0;
+
+}
+
 static int esp8266_bind(struct net_context *context,
 			const struct sockaddr *addr,
 			socklen_t addrlen)
@@ -222,27 +286,6 @@ static struct net_offload esp8266_offload = {
 	.recv		= NULL,
 	.put		= esp8266_put,
 };
-
-static void esp8266_uart_send(struct device *dev)
-{
-	int count;
-
-	while(foo_data.tx_head < foo_data.tx_tail){//uart_irq_tx_ready(dev)){
-        #if 1
-		if (foo_data.tx_head == foo_data.tx_tail) {
-			uart_irq_tx_disable(dev);
-			break;
-		}
-		/* try to send some data */
-		count = uart_fifo_fill(dev, foo_data.tx_buf + foo_data.tx_head,
-				       foo_data.tx_tail - foo_data.tx_head);
-		foo_data.tx_head += count;
-        #else
-        uart_fifo_fill(dev, foo_data.tx_buf,
-				       foo_data.tx_tail);
-        #endif
-	}
-}
 
 static int esp8266_mgmt_echo(struct device *dev)
 {
@@ -441,6 +484,39 @@ static void esp8266_work_handler(struct k_work *work)
         esp8266_uart_send(foo_data.uart_dev);
 		k_sem_take(&transfer_complete, 1000);
     }
+    if (foo_data.event & EVENT_TCP) {
+        len = sprintf(foo_data.tx_buf, "AT+CIPSTART=%s,%s,%d\r\n",
+                "\"TCP\"", "\"mqtt.googleapis.com\"", 8883);
+        foo_data.tx_head = 0;
+        foo_data.tx_tail = len;
+        esp8266_set_request_state(ESP8266_ECHO);
+        uart_irq_rx_enable(foo_data.uart_dev);
+        uart_irq_tx_enable(foo_data.uart_dev);
+        esp8266_uart_send(foo_data.uart_dev);
+        k_sem_take(&transfer_complete, K_FOREVER);
+
+        len = sprintf(foo_data.tx_buf, "AT+CIPMODE=1\r\n");
+        foo_data.tx_head = 0;
+        foo_data.tx_tail = len;
+        esp8266_set_request_state(ESP8266_ECHO);
+
+        uart_irq_rx_enable(foo_data.uart_dev);
+        uart_irq_tx_enable(foo_data.uart_dev);
+        esp8266_uart_send(foo_data.uart_dev);
+        k_sem_take(&transfer_complete, K_FOREVER);
+
+        len = sprintf(foo_data.tx_buf, "AT+CIPSEND\r\n");
+        foo_data.tx_head = 0;
+        foo_data.tx_tail = len;
+        esp8266_set_request_state(ESP8266_SEND_DATA);
+
+        uart_irq_rx_enable(foo_data.uart_dev);
+        uart_irq_tx_enable(foo_data.uart_dev);
+        esp8266_uart_send(foo_data.uart_dev);
+        k_sem_take(&transfer_complete, K_FOREVER);
+
+        foo_data.event &= ~EVENT_TCP;
+    }
 }
 
 static void esp8266_iface_init(struct net_if *iface)
@@ -579,6 +655,10 @@ void parse_sntp(void)
         printk("  min : %d\r\n", now_tm.tm_min);
         printk("  sec : %d\r\n", now_tm.tm_sec);
         foo_data.event &= ~EVENT_SNTP;
+
+    foo_data.event |= EVENT_TCP;
+    if (foo_data.transaction == ESP8266_IDLE)
+        k_delayed_work_submit(&foo_data.work, 200);
     }
 }
 
@@ -642,7 +722,17 @@ void scan_line(void)
 			printk("busy send\n");
 		} else if (strstr(rx_buf, "busy p...")) {
 			printk("busy p");
-		}
+        } else if (strstr(rx_buf, "CONNECT")) {
+			printk("Connect to Server\n");
+        } else if (strstr(rx_buf, ">")
+                && foo_data.transaction == ESP8266_SEND_DATA) {
+			foo_data.resp = ESP8266_OK;
+			esp8266_clear_request_state();
+			k_sem_give(&transfer_complete);
+            printk ("Enter the TP mode\n");
+		} else {
+		    printk("unknown return %s\n", rx_buf);
+        }
 		rx_last = 0;
 	}
 }
@@ -762,11 +852,22 @@ if (!drv_data->gpio_dev) {
 //	esp8266_set_request_state(ESP8266_POWER_UP);
 
 	/* enable device and check for ready */
-	k_sleep(100);
+	len = sprintf(foo_data.tx_buf, "+++");
+	foo_data.tx_head = 0;
+	foo_data.tx_tail = len;
+
+    esp8266_uart_send(drv_data->uart_dev);
+    k_sleep(1000);
+	len = sprintf(foo_data.tx_buf, "AT+RST\r\n");
+	foo_data.tx_head = 0;
+	foo_data.tx_tail = len;
+
+    esp8266_uart_send(drv_data->uart_dev);
+
 //	gpio_pin_write(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN, 1);
 
 	k_sleep(1000);
-//	k_sem_take(&transfer_complete, 3000);
+	k_sem_take(&transfer_complete, 3000);
 #if 0
 if (!foo_data.initialized) {
 		SYS_LOG_ERR("esp8266 never became ready\n");
