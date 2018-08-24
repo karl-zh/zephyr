@@ -7,11 +7,10 @@
 #include <zephyr.h>
 #include <misc/printk.h>
 #include <tfm_sst_veneers.h>
-#include <tfm_ss_core_test_veneers.h>
-#include <tfm_ss_core_test_2_veneers.h>
+//#include <tfm_ss_core_test_veneers.h>
+//#include <tfm_ss_core_test_2_veneers.h>
 #include <wifi_esp8266.h>
 
-#ifdef CONFIG_BOARD_MPS2_AN521
 #define CORE_TEST_ID_NS_THREAD          1001
 #define CORE_TEST_ID_NS_SVC             1002
 #define CORE_TEST_ID_CHECK_INIT         1003
@@ -28,6 +27,9 @@
 #define CORE_TEST_RETURN_ERROR(x) return (((__LINE__) << 16) | x)
 #define CORE_TEST_ERROR_GET_EXTRA(x) (x >> 16)
 #define CORE_TEST_ERROR_GET_CODE(x) (x & 0xFFFF)
+
+/* No idea. */
+#define TFM_SERVICE_SPECIFIC_ERROR_MIN 1234
 
 enum core_test_errno_t {
     CORE_TEST_ERRNO_SUCCESS = 0,
@@ -56,7 +58,6 @@ static char *error_to_string(const char *desc, int32_t err)
         CORE_TEST_ERROR_GET_EXTRA(err));
     return info;
 }
-
 
 #define TOSTRING(x) #x
 #define CORE_TEST_DESCRIPTION(number, fn, description) \
@@ -128,6 +129,7 @@ __attribute__ ((naked)) int32_t tfm_core_test_multiple_calls_svc(void *fn_ptr,
     SVC(SVC_TFM_CORE_TEST_MULTIPLE_CALLS);
     __asm__ volatile ("BX LR");
 }
+#ifdef CONFIG_BOARD_MPS2_AN521
 
 int32_t args[4] = {0};
 
@@ -536,6 +538,8 @@ static struct device *esp8266_dev;
 static char rx_buf0[128];
 static char rx_buf1[128];
 
+static char buffer[512];
+
 void main(void)
 {
 #if defined CONFIG_BOARD_MPS2_AN521
@@ -603,6 +607,42 @@ void main(void)
 
     while(!esp8266_driver_data->transparent)
         k_sleep(K_MSEC(1000));
+
+   uint32_t a = k_cycle_get_32();
+   for (int i = 0; i < 10000; i++)
+           __asm__ volatile("nop" : : : "memory");
+   uint32_t b = k_cycle_get_32();
+   printk("time %ld\n", b - a);
+
+   a = b;
+   struct tfm_sst_jwt_t jwt_cmd;
+   enum psa_sst_err_t err;
+   uint32_t args[4] = {0};
+   args[0] = 10;
+   args[1] = 0;
+   jwt_cmd.buffer = buffer;
+   jwt_cmd.buffer_size = (sizeof(buffer));
+   jwt_cmd.iat = 1532120018;
+   jwt_cmd.exp = jwt_cmd.iat + 60 * 60;
+   jwt_cmd.aud = "simple-demo";
+   jwt_cmd.aud_len = strlen(jwt_cmd.aud);
+   args[2] = 0;
+   args[3] = &jwt_cmd;
+   err = tfm_core_test_svc(tfm_veneer_jwt_sign, args);
+   b = k_cycle_get_32();
+   printk("result: %d, %x %x\n", err, buffer[0], buffer[1]);
+   if (err == 0) {
+           printk("token: %s\n\n", buffer);
+   }
+   printk("After the token: %ld ticks\n", b - a);
+   while (1) {
+           k_sleep(K_MSEC(1000));
+   }
+   /*
+   if (err != TFM_SST_ERR_SUCCESS) {
+           printk("Sign didn't work");
+   }
+   */
 
 	while (1) {
 		printk("========V2M Musca A1========\n");
