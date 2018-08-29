@@ -6,6 +6,7 @@
 
 #include <zephyr.h>
 #include <misc/printk.h>
+#include <time.h>
 #include <tfm_sst_veneers.h>
 //#include <tfm_ss_core_test_veneers.h>
 //#include <tfm_ss_core_test_2_veneers.h>
@@ -635,6 +636,33 @@ void main(void)
            printk("token: %s\n\n", buffer);
    }
    printk("After the token: %ld ticks\n", b - a);
+
+#if 0
+   /* After setting the time, spin periodically, and make sure
+    * the system clock keeps up reasonably.
+    */
+   for (int count = 0; count < 3; count++) {
+       time_t now;
+       struct tm tm;
+       uint32_t c1, c2, c3;
+       c1 = k_cycle_get_32();
+       now = k_time(NULL);
+       c2 = k_cycle_get_32();
+       gmtime_r(&now, &tm);
+       c3 = k_cycle_get_32();
+       printk("time %d-%d-%d %d:%d:%d",
+               tm.tm_year + 1900,
+               tm.tm_mon + 1,
+               tm.tm_mday,
+               tm.tm_hour,
+               tm.tm_min,
+               tm.tm_sec);
+       printk("time k_time(): %lu", c2 - c1);
+       printk("time gmtime_r(): %lu", c3 - c2);
+       k_sleep(990);
+   }
+#endif
+
    while (1) {
            k_sleep(K_MSEC(1000));
    }

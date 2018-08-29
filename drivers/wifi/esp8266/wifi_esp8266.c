@@ -568,7 +568,7 @@ void parse_sntp(void)
             if (strncmp(m2n[now_tm.tm_mon],rx_buf + 17, 3) == 0)
                 break;
 
-        now_tm.tm_year = atoi(rx_buf + 33);
+        now_tm.tm_year = atoi(rx_buf + 33) - 1900;
 
         printk("  year: %d\r\n", now_tm.tm_year);
         printk("  mon : %d\r\n", now_tm.tm_mon);
@@ -587,7 +587,7 @@ void parse_sntp(void)
         /* Convert time to make sure. */
         time_t now = epoch_time;
         gmtime_r(&now, &now_tm);
-        printk("  year: %d\r\n", now_tm.tm_year);
+        printk("  year: %d\r\n", now_tm.tm_year +1900);
         printk("  mon : %d\r\n", now_tm.tm_mon);
         printk("  day : %d\r\n", now_tm.tm_mday);
         printk("  hour: %d\r\n", now_tm.tm_hour);
@@ -794,6 +794,7 @@ if (!drv_data->gpio_dev) {
 	foo_data.tx_head = 0;
 	foo_data.tx_tail = len;
 
+#if 0
     esp8266_uart_send(drv_data->uart_dev);
     k_sleep(1000);
 	len = sprintf(foo_data.tx_buf, "AT+RST\r\n");
@@ -801,11 +802,11 @@ if (!drv_data->gpio_dev) {
 	foo_data.tx_tail = len;
 
     esp8266_uart_send(drv_data->uart_dev);
-
 //	gpio_pin_write(drv_data->gpio_dev, CONFIG_WIFI_ESP8266_GPIO_ENABLE_PIN, 1);
 
 	k_sleep(1000);
 	k_sem_take(&transfer_complete, 3000);
+#endif
 #if 0
 if (!foo_data.initialized) {
 		SYS_LOG_ERR("esp8266 never became ready\n");

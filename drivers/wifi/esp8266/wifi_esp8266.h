@@ -74,4 +74,6 @@ struct esp8266_data {
 	struct device *gpio_dev;
 };
 
+time_t k_time(time_t *ptr);
+
 #endif /* __WIFI_ESP8266_H__ */
