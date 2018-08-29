@@ -587,6 +587,7 @@ void main(void)
     struct esp8266_data * esp8266_driver_data;
     struct wifi_connect_req_params esp8266_params;
     struct net_if iface;
+	struct zsock_addrinfo *haddr;
 
     uart0_dev = device_get_binding("UART_0");
     esp8266_dev = device_get_binding("ESP8266");
@@ -636,6 +637,8 @@ void main(void)
            printk("token: %s\n\n", buffer);
    }
    printk("After the token: %ld ticks\n", b - a);
+
+   tls_client("mqtt.googleapis.com", haddr, 8883);
 
 #if 0
    /* After setting the time, spin periodically, and make sure
