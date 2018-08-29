@@ -73,6 +73,7 @@ struct esp8266_data {
 	struct device *uart_dev;
 	struct device *gpio_dev;
 };
+struct esp8266_data foo_data;
 
 time_t k_time(time_t *ptr);
 

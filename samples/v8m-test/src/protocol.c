@@ -16,6 +16,7 @@
 
 #include "mqtt.h"
 #include "pdump.h"
+#include <uart.h>
 
 #include <mbedtls/platform.h>
 #include <mbedtls/net.h>
@@ -24,6 +25,7 @@
 #include <mbedtls/ctr_drbg.h>
 
 #include <mbedtls/debug.h>
+#include <wifi_esp8266.h>
 
 #ifdef CONFIG_STDOUT_CONSOLE
 # include <stdio.h>
@@ -319,13 +321,14 @@ static int tcp_tx(void *ctx,
 		  size_t len)
 {
 	int sock = *((int *) ctx);
-#if 0
+	int count = 0;
 	/* Ideally, don't try to send more than is allowed.  TLS will
 	 * reassemble on the other end. */
 
 	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_tx", buf, len);
 	printf("SEND: %d to %d\n", len, sock);
 
+#if 0
 	int res = zsock_send(sock, buf, len, ZSOCK_MSG_DONTWAIT);
 	if (res >= 0) {
 		return res;
@@ -334,10 +337,19 @@ static int tcp_tx(void *ctx,
 	if (res != len) {
 		printf("Short send: %d\n", res);
 	}
+#else
+    
+    uart_irq_tx_enable(foo_data.uart_dev);
 
-	// printk("----- SEND -----\n");
-	// pdump(buf, res);
-	// printk("----- END SEND -----\n");
+	while(count < len){//uart_irq_tx_ready(dev)){
+		/* try to send some data */
+		count += uart_fifo_fill(foo_data.uart_dev, buf + count, len - count);
+//        printk("tcp tx %d, %d\n", count, len);
+	}
+#endif
+//    printk("----- SEND -----\n");
+//	pdump(buf, count);
+//	printk("----- END SEND -----\n");
 
 	switch errno {
 	case EAGAIN:
@@ -347,7 +359,6 @@ static int tcp_tx(void *ctx,
 	default:
 		return MBEDTLS_ERR_NET_SEND_FAILED;
 	}
-#endif
 }
 
 static int tcp_rx(void *ctx,
@@ -356,14 +367,49 @@ static int tcp_rx(void *ctx,
 {
 	int res;
 	int sock = *((int *) ctx);
+	int count = 0;
+	u8_t c;
+	int rlen;
 #if 0
 	res = zsock_recv(sock, buf, len, ZSOCK_MSG_DONTWAIT);
-	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_rx", buf, res);
+//#else
+    while(uart_irq_rx_ready(foo_data.uart_dev)){
+
+        if (foo_data.rx_full) {
+            /* drain over flow */
+            printk("overflow on read - discarding\n");
+            uart_fifo_read(foo_data.uart_dev, &c, 1);
+            continue;
+        }
+
+        rlen = (foo_data.rx_head >= foo_data.rx_tail) ?
+                ESP8266_BUF_SIZE - foo_data.rx_head:
+                foo_data.rx_tail - foo_data.rx_head;
+
+        /* read into circular buffer onto head */
+        count = uart_fifo_read(foo_data.uart_dev, &foo_data.rx_buf[foo_data.rx_head],
+                       rlen);
+
+        if (count) {
+            foo_data.rx_head = (foo_data.rx_head + count) & (ESP8266_BUF_SIZE - 1);
+            if (foo_data.rx_head == foo_data.rx_tail) {
+                foo_data.rx_full = 1;
+            }
+        }
+    }
+    res = foo_data.rx_head;
+#else
+    while(uart_irq_rx_ready(foo_data.uart_dev)){
+        count = uart_fifo_read(foo_data.uart_dev, buf,
+                       len);
+        }
+#endif
+//	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_rx", buf, res);
 	if (res >= 0) {
 		printf("RECV: %d from %d\n", res, sock);
-		// printk("----- RECV -----\n");
-		// pdump(buf, res);
-		// printk("----- END RECV -----\n");
+		 printk("----- RECV -----\n");
+		 pdump(buf, res);
+		 printk("----- END RECV -----\n");
 	}
 
 	if (res >= 0) {
@@ -377,7 +423,6 @@ static int tcp_rx(void *ctx,
 	default:
 		return MBEDTLS_ERR_NET_RECV_FAILED;
 	}
-#endif
 }
 
 const char *pers = "mini_client";  // What is this?
@@ -396,7 +441,7 @@ static int tls_perform(tls_action action, void *data)
 	int res = action(data);
 	short events = 0;
 	while (1) {
-		// SYS_LOG_INF("tls_perform loop: %d", res);
+		SYS_LOG_INF("tls_perform loop: %d", res);
 		switch (res) {
 		case MBEDTLS_ERR_SSL_WANT_READ:
 			events = ZSOCK_POLLIN;
@@ -420,6 +465,7 @@ static int tls_perform(tls_action action, void *data)
 		};
 
 		SYS_LOG_INF("polling: %d", events);
+        k_sleep(250);
 //res = zsock_poll(fds, 1, 250);
 		if (res < 0) {
 			SYS_LOG_ERR("Socket poll error: %d\n", errno);
@@ -606,6 +652,11 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 		SYS_LOG_ERR("Failed to connect to socket");
 		return;
 	}
+#else
+    uart_irq_callback_set(foo_data.uart_dev, tcp_rx);
+
+    uart_irq_rx_enable(foo_data.uart_dev);
+
 #endif
 	SYS_LOG_INF("Connected");
 
