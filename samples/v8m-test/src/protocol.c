@@ -407,13 +407,15 @@ static int tcp_rx(void *ctx,
         count = uart_fifo_read(foo_data.uart_dev, buf,
                        len);
         }
-    if (count > 0){
+    if (count >= 0)
+        {
         printk("tcp rx %d, %d\n", count, len);
         return count;
     }
 #endif
 //	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_rx", buf, res);
-	if (count >= 0) {
+//	if (count >= 0)
+        {
 		printf("RECV: %d from %d\n", count, sock);
 		 printk("----- RECV -----\n");
 		 pdump(buf, count);
