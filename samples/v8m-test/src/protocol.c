@@ -402,7 +402,7 @@ static int tcp_rx(void *ctx,
     }
     res = foo_data.rx_head;
 #else
-//    while(uart_irq_rx_ready(foo_data.uart_dev))
+    while(!uart_irq_rx_ready(foo_data.uart_dev));
         {
         count = uart_fifo_read(foo_data.uart_dev, buf,
                        len);
@@ -629,7 +629,7 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 	mbedtls_ssl_conf_authmode(&the_conf, MBEDTLS_SSL_VERIFY_NONE);
 #endif
 
-	// mbedtls_debug_set_threshold(2);
+	 mbedtls_debug_set_threshold(3);
 	if (mbedtls_ssl_setup(&the_ssl, &the_conf) != 0) {
 		SYS_LOG_ERR("Error running mbedtls_ssl_setup");
 		return;
