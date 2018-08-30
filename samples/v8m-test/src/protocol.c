@@ -344,8 +344,11 @@ static int tcp_tx(void *ctx,
 	while(count < len){//uart_irq_tx_ready(dev)){
 		/* try to send some data */
 		count += uart_fifo_fill(foo_data.uart_dev, buf + count, len - count);
-//        printk("tcp tx %d, %d\n", count, len);
 	}
+    if (count > 0) {
+        printk("tcp tx %d, %d\n", count, len);
+        return count;
+    }
 #endif
 //    printk("----- SEND -----\n");
 //	pdump(buf, count);
@@ -353,7 +356,7 @@ static int tcp_tx(void *ctx,
 
 	switch errno {
 	case EAGAIN:
-		printf("Waiting for write, res: %d\n", len);
+		printk("Waiting for write, res: %d\n", len);
 		return MBEDTLS_ERR_SSL_WANT_WRITE;
 
 	default:
@@ -399,16 +402,21 @@ static int tcp_rx(void *ctx,
     }
     res = foo_data.rx_head;
 #else
-    while(uart_irq_rx_ready(foo_data.uart_dev)){
+//    while(uart_irq_rx_ready(foo_data.uart_dev))
+        {
         count = uart_fifo_read(foo_data.uart_dev, buf,
                        len);
         }
+    if (count > 0){
+        printk("tcp rx %d, %d\n", count, len);
+        return count;
+    }
 #endif
 //	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_rx", buf, res);
-	if (res >= 0) {
-		printf("RECV: %d from %d\n", res, sock);
+	if (count >= 0) {
+		printf("RECV: %d from %d\n", count, sock);
 		 printk("----- RECV -----\n");
-		 pdump(buf, res);
+		 pdump(buf, count);
 		 printk("----- END RECV -----\n");
 	}
 
