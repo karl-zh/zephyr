@@ -373,8 +373,7 @@ static int tcp_rx(void *ctx,
 	u8_t c;
 	int rlen;
 
-    count = uart_fifo_read(foo_data.uart_dev, buf,
-                       len);
+   count = uart_fifo_read(foo_data.uart_dev, buf, len);
     if (count > 0){
         printk("tcp rx %d, %d\n", count, len);
         return count;
@@ -595,7 +594,7 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 	mbedtls_ssl_conf_authmode(&the_conf, MBEDTLS_SSL_VERIFY_NONE);
 #endif
 
-	// mbedtls_debug_set_threshold(2);
+	 mbedtls_debug_set_threshold(3);
 	if (mbedtls_ssl_setup(&the_ssl, &the_conf) != 0) {
 		SYS_LOG_ERR("Error running mbedtls_ssl_setup");
 		return;

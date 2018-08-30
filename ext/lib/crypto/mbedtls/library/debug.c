@@ -85,9 +85,11 @@ void mbedtls_debug_print_msg( const mbedtls_ssl_context *ssl, int level,
     va_list argp;
     char str[DEBUG_BUF_SIZE];
     int ret;
+//    printk("debug %x %x %x  %d %d\n", ssl, ssl->conf, ssl->conf->f_dbg , level, debug_threshold);
 
     if( NULL == ssl || NULL == ssl->conf || NULL == ssl->conf->f_dbg || level > debug_threshold )
         return;
+//    printk("debug %s %d\n", __func__, __LINE__);
 
     va_start( argp, format );
 #if defined(_WIN32)

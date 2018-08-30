@@ -33,7 +33,7 @@
 #define MBEDTLS_HAVE_TIME_DATE
 #define MBEDTLS_PLATFORM_TIME_ALT
 // #define MBEDTLS_PLATFORM_STD_TIME k_time
-
+#define CONFIG_MBEDTLS_TEST
 #if !defined(CONFIG_ARM)
 #define MBEDTLS_HAVE_ASM
 #endif
