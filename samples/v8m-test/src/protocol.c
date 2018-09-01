@@ -60,6 +60,7 @@ static unsigned char heap[56240];
  * This is the hard-coded root certificate that we accept.
  */
 #include "sign.inc"
+#include "globalsign.inc"
 
 /*
  * Determine the length of an MQTT packet.
@@ -327,8 +328,8 @@ static int tcp_tx(void *ctx,
 	/* Ideally, don't try to send more than is allowed.  TLS will
 	 * reassemble on the other end. */
 
-	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_tx", buf, len);
-	printf("SEND: %d to %d\n", len, sock);
+//	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_tx", buf, len);
+//	printf("SEND: %d to %d\n", len, sock);
 
 #if 0
 	int res = zsock_send(sock, buf, len, ZSOCK_MSG_DONTWAIT);
@@ -348,6 +349,9 @@ static int tcp_tx(void *ctx,
 	}
     if (count > 0) {
         printk("tcp tx %d, %d\n", count, len);
+        printk("----- SEND -----\n");
+        pdump(buf, count);
+        printk("----- END SEND -----\n");
         return count;
     }
 #endif
@@ -612,8 +616,8 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 	 */
 #if 1
 	/* Load the intended root cert in. */
-	if (mbedtls_x509_crt_parse_der(&ca, device_certificate,
-				       sizeof(device_certificate)) != 0) {
+	if (mbedtls_x509_crt_parse_der(&ca, globalsign_certificate,
+				       sizeof(globalsign_certificate)) != 0) {
 		SYS_LOG_ERR("Unable to decode root cert");
 		return;
 	}

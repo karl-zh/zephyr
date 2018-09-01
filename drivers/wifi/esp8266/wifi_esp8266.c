@@ -524,7 +524,7 @@ void parse_ip(void)
 	int index;
 	char *parTok, *ipTok, *addrTok, *octetTok, *parSaveTok, *octSaveTok;
 	struct in_addr addr;
-
+printk(rx_buf);
 	/* parse contents */
 	parTok = strtok_r(rx_buf, ":", &parSaveTok);
 	ipTok = strtok_r(NULL, ":", &parSaveTok);
