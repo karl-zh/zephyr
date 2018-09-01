@@ -26,6 +26,7 @@
 
 #include <mbedtls/debug.h>
 #include <wifi_esp8266.h>
+#include "lqueue.h"
 
 #ifdef CONFIG_STDOUT_CONSOLE
 # include <stdio.h>
@@ -34,6 +35,7 @@
 # define PRINT printk
 #endif
 
+QUEUE tcp_q;
 /*
  * TODO: Properly export these.
  */
@@ -368,6 +370,31 @@ static int tcp_tx(void *ctx,
 	}
 }
 
+static int tcp_isr(struct device *dev)
+{
+    int count;
+    queue_element_type c;
+    int rlen;
+
+    uart_irq_update(dev);
+
+    while(uart_irq_rx_ready(foo_data.uart_dev)){
+#if 0 //full_queue in isr will lead a fatal fault,no idea now
+        if (full_queue(&tcp_q)) {
+            /* drain over flow */
+            printk("overflow on read - discarding\n");
+            uart_fifo_read(dev, &c, 1);
+            continue;
+        }
+#endif
+        /* read into circular buffer onto head */
+        uart_fifo_read(dev, &c, 1);
+//        printk("tcp isr %x\n", c);
+        en_queue(&tcp_q, c);
+    }
+}
+
+
 static int tcp_rx(void *ctx,
 		  unsigned char *buf,
 		  size_t len)
@@ -375,7 +402,7 @@ static int tcp_rx(void *ctx,
 	int res;
 	int sock = *((int *) ctx);
 	int count = 0;
-	u8_t c;
+    queue_element_type c;
 	int rlen;
 #if 0
 	res = zsock_recv(sock, buf, len, ZSOCK_MSG_DONTWAIT);
@@ -406,16 +433,14 @@ static int tcp_rx(void *ctx,
     }
     res = foo_data.rx_head;
 #else
-    static int rec_time = 0;
+    int rec_time = 0;
     int lent = len;
-    if(len == 81)
-        len += 1028;
-    while(!uart_irq_rx_ready(foo_data.uart_dev));
+    while(empty_queue(&tcp_q));
     while (count < len && rec_time < 1500){
-        count += uart_fifo_read(foo_data.uart_dev, buf + count,
-                       len - count);
-		printk("rec: %d  %d\n", count, len);
-		rec_time++;
+        if(de_queue(&tcp_q, buf + count))
+            count ++;
+        else
+            rec_time++;
     }
     if (count >= 0)
         {
@@ -676,7 +701,8 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 		return;
 	}
 #else
-    uart_irq_callback_set(foo_data.uart_dev, tcp_rx);
+    initial_queue(&tcp_q, ESP8266_TCP_RCV_BUF_MAX);
+    uart_irq_callback_set(foo_data.uart_dev, tcp_isr);
 
     uart_irq_rx_enable(foo_data.uart_dev);
 

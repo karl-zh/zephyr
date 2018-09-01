@@ -24,7 +24,7 @@
 #include <gpio.h>
 #include <wifi_esp8266.h>
 
-static char rx_buf[512];
+char rx_buf[ESP8266_TCP_RCV_BUF_MAX];
 static size_t rx_last;
 static struct wifi_scan_result scan_result[10];
 static int scan_count;

@@ -3593,7 +3593,10 @@ static int ssl_parse_record_header( mbedtls_ssl_context *ssl )
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "minor version mismatch" ) );
         return( MBEDTLS_ERR_SSL_INVALID_RECORD );
     }
-
+printk("zss len %d  %d  %d %d \n",MBEDTLS_SSL_BUFFER_LEN,
+    ssl->in_msg,
+    ssl->in_buf,
+    MBEDTLS_SSL_BUFFER_LEN - (size_t)( ssl->in_msg - ssl->in_buf ));
     /* Check length against the size of our buffer */
     if( ssl->in_msglen > MBEDTLS_SSL_BUFFER_LEN
                          - (size_t)( ssl->in_msg - ssl->in_buf ) )
