@@ -6727,6 +6727,7 @@ int mbedtls_ssl_handshake( mbedtls_ssl_context *ssl )
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= handshake" ) );
 
+printk("ssl_handshake ret %d\r\n", ret);
     return( ret );
 }
 

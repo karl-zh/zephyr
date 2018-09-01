@@ -58,6 +58,7 @@ static unsigned char heap[56240];
  * This is the hard-coded root certificate that we accept.
  */
 #include "sign.inc"
+#include "globalsign.inc"
 
 /*
  * Determine the length of an MQTT packet.
@@ -325,8 +326,8 @@ static int tcp_tx(void *ctx,
 	/* Ideally, don't try to send more than is allowed.  TLS will
 	 * reassemble on the other end. */
 
-	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_tx", buf, len);
-	printf("SEND: %d to %d\n", len, sock);
+//	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_tx", buf, len);
+//	printf("SEND: %d to %d\n", len, sock);
 
 #if 0
 	int res = zsock_send(sock, buf, len, ZSOCK_MSG_DONTWAIT);
@@ -347,6 +348,9 @@ static int tcp_tx(void *ctx,
 	}
     if (count > 0) {
         printk("tcp tx %d, %d\n", count, len);
+        printk("----- SEND -----\n");
+        pdump(buf, count);
+        printk("----- END SEND -----\n");
         return count;
     }
 #endif
@@ -402,21 +406,30 @@ static int tcp_rx(void *ctx,
     }
     res = foo_data.rx_head;
 #else
+    static int rec_time = 0;
+    int lent = len;
+    if(len == 81)
+        len += 1028;
     while(!uart_irq_rx_ready(foo_data.uart_dev));
-        {
-        count = uart_fifo_read(foo_data.uart_dev, buf,
-                       len);
-        }
+    while (count < len && rec_time < 1500){
+        count += uart_fifo_read(foo_data.uart_dev, buf + count,
+                       len - count);
+		printk("rec: %d  %d\n", count, len);
+		rec_time++;
+    }
     if (count >= 0)
         {
         printk("tcp rx %d, %d\n", count, len);
-        return count;
+        printk("----- RECV -----\n");
+        pdump(buf, count);
+        printk("----- END RECV -----\n");
+        return lent;
     }
 #endif
 //	mbedtls_debug_print_buf(&the_ssl, 4, __FILE__, __LINE__, "tcp_rx", buf, res);
 //	if (count >= 0)
         {
-		printf("RECV: %d from %d\n", count, sock);
+		printk("RECV: %d from %d\n", count, sock);
 		 printk("----- RECV -----\n");
 		 pdump(buf, count);
 		 printk("----- END RECV -----\n");
@@ -475,7 +488,7 @@ static int tls_perform(tls_action action, void *data)
 		};
 
 		SYS_LOG_INF("polling: %d", events);
-        k_sleep(250);
+        k_sleep(10);
 //res = zsock_poll(fds, 1, 250);
 		if (res < 0) {
 			SYS_LOG_ERR("Socket poll error: %d\n", errno);
@@ -615,8 +628,8 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 	 */
 #if 1
 	/* Load the intended root cert in. */
-	if (mbedtls_x509_crt_parse_der(&ca, device_certificate,
-				       sizeof(device_certificate)) != 0) {
+	if (mbedtls_x509_crt_parse_der(&ca, globalsign_certificate,
+				       sizeof(globalsign_certificate)) != 0) {
 		SYS_LOG_ERR("Unable to decode root cert");
 		return;
 	}

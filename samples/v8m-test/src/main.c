@@ -597,7 +597,7 @@ void main(void)
 	}
     uart_irq_rx_enable(uart0_dev);
 
-    esp8266_params.ssid= "NETGEAR22";
+    esp8266_params.ssid= "iot-test";
     esp8266_params.ssid_length = strlen(esp8266_params.ssid);
     esp8266_params.psk = "aquaticphoenix998";
     esp8266_params.psk_length = strlen(esp8266_params.psk);
