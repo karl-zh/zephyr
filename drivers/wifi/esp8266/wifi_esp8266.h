@@ -76,6 +76,7 @@ struct esp8266_data {
 };
 struct esp8266_data foo_data;
 char rx_buf[ESP8266_TCP_RCV_BUF_MAX];
+char jwt_buffer[512];
 
 time_t k_time(time_t *ptr);
 

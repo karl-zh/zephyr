@@ -161,7 +161,7 @@ static bool got_reply;
 static u8_t send_buf[1024];
 static u8_t recv_buf[1024];
 static size_t recv_used;
-static u8_t token[512];
+//static u8_t token[512];
 
 /* A queue of publish replies we need to return. */
 #define PUBACK_SIZE 8  /* Change macro if not power of two */
@@ -513,7 +513,7 @@ struct write_action {
 static int action_write(void *data)
 {
 	struct write_action *act = data;
-
+#if 0
 	/* Try the read first, in order to process the received data.
 	 */
 	int res = check_read(act->context);
@@ -525,7 +525,7 @@ static int action_write(void *data)
 		/* Some kind of error, so return that. */
 		return res;
 	}
-
+#endif
 	/* At this point, we read, so now try the write. */
 	return mbedtls_ssl_write(act->context, act->buf, act->len);
 }
@@ -549,6 +549,7 @@ static int action_idle(void *data)
 	}
 
 	int res = check_read(act->context);
+    printk("idle %d %d %d %d\n", res, got_reply, puback_head, puback_tail);
 	if (res > 0 && !got_reply && (puback_head == puback_tail)) {
 		/* In the valid case, just wait for more data. */
 		res = MBEDTLS_ERR_SSL_WANT_READ;
@@ -693,7 +694,6 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 
 static const char client_id[] = "projects/macro-precinct-211108/locations/us-central1/"
 	"registries/agross-registry/devices/karl-zh-cert";
-#define AUDIENCE "macro-precinct-211108"
 
 extern const unsigned char zepfull_private_der[];
 extern const unsigned int zepfull_private_der_len;
@@ -721,10 +721,11 @@ void mqtt_startup(void)
 {
 	struct mqtt_connect_msg conmsg;
 	struct jwt_builder jb;
+    int res;
 
+#if 0
 	time_t now = k_time(NULL);
-
-	int res = jwt_init_builder(&jb, token, sizeof(token));
+    res = jwt_init_builder(&jb, token, sizeof(token));
 	if (res != 0) {
 		printk("Error with JWT token\n");
 		return;
@@ -747,6 +748,7 @@ void mqtt_startup(void)
 		printk("Error with JWT token\n");
 		return;
 	}
+#endif
 
 	memset(&conmsg, 0, sizeof(conmsg));
 
@@ -754,11 +756,11 @@ void mqtt_startup(void)
 	conmsg.client_id = (char *)client_id;  /* Discard const */
 	conmsg.client_id_len = strlen(client_id);
 	conmsg.keep_alive = 60 * 2; /* Two minutes */
-	conmsg.password = token;
-	conmsg.password_len = jwt_payload_len(&jb);
+	conmsg.password = jwt_buffer;
+	conmsg.password_len = strlen(jwt_buffer);//jwt_payload_len(&jb); -
 
 	printk("len1 = %d, len2 = %d\n", conmsg.password_len,
-	       strlen(token));
+	       strlen(jwt_buffer));
 
 	u16_t send_len = 0;
 	res = mqtt_pack_connect(send_buf, &send_len, sizeof(send_buf),
@@ -772,7 +774,9 @@ void mqtt_startup(void)
 	};
 
 	pdump(send_buf, send_len);
-	res = tls_perform(action_write, &wract);
+//	res = tls_perform(action_write, &wract);
+    action_write(&wract);
+
 
 	while (!got_reply) {
 		printk("Waiting for CONNACT\n");

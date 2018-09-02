@@ -539,7 +539,9 @@ static struct device *esp8266_dev;
 static char rx_buf0[128];
 static char rx_buf1[128];
 
-static char buffer[512];
+#define AUDIENCE "macro-precinct-211108"
+//"macro-precinct-211108"
+char jwt_buffer[512];
 
 void main(void)
 {
@@ -616,29 +618,32 @@ void main(void)
    uint32_t b = k_cycle_get_32();
    printk("time %ld\n", b - a);
 
-   a = b;
-   struct tfm_sst_jwt_t jwt_cmd;
-   enum psa_sst_err_t err;
-   uint32_t args[4] = {0};
-   args[0] = 10;
-   args[1] = 0;
-   jwt_cmd.buffer = buffer;
-   jwt_cmd.buffer_size = (sizeof(buffer));
-   jwt_cmd.iat = 1532120018;
-   jwt_cmd.exp = jwt_cmd.iat + 60 * 60;
-   jwt_cmd.aud = "simple-demo";
-   jwt_cmd.aud_len = strlen(jwt_cmd.aud);
-   args[2] = 0;
-   args[3] = &jwt_cmd;
-   err = tfm_core_test_svc(tfm_veneer_jwt_sign, args);
-   b = k_cycle_get_32();
-   printk("result: %d, %x %x\n", err, buffer[0], buffer[1]);
-   if (err == 0) {
-           printk("token: %s\n\n", buffer);
-   }
-   printk("After the token: %ld ticks\n", b - a);
-
    tls_client("mqtt.googleapis.com", haddr, 8883);
+#if 1
+      a = b;
+      struct tfm_sst_jwt_t jwt_cmd;
+      time_t now = k_time(NULL);
+      enum psa_sst_err_t err;
+      uint32_t args[4] = {0};
+      args[0] = 10;
+      args[1] = 0;
+      jwt_cmd.buffer = jwt_buffer;
+      jwt_cmd.buffer_size = (sizeof(jwt_buffer));
+      jwt_cmd.iat = now;
+      jwt_cmd.exp = jwt_cmd.iat + 60 * 5;
+      jwt_cmd.aud = AUDIENCE;//"simple-demo";
+      jwt_cmd.aud_len = strlen(jwt_cmd.aud);
+      args[2] = 0;
+      args[3] = &jwt_cmd;
+      err = tfm_core_test_svc(tfm_veneer_jwt_sign, args);
+      b = k_cycle_get_32();
+      printk("result: %d, %x %x time %d\n", err, jwt_buffer[0], jwt_buffer[1], jwt_cmd.iat);
+      if (err == 0) {
+              printk("token: %s\n\n", jwt_buffer);
+      }
+      printk("After the token: %ld ticks\n", b - a);
+#endif
+   mqtt_startup();
 
 #if 0
    /* After setting the time, spin periodically, and make sure
