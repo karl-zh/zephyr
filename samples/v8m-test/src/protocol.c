@@ -100,6 +100,21 @@ static int mqtt_length(u8_t *data, size_t len)
 	return size + pos + 1;
 }
 
+
+static unsigned long int next = 1;
+
+/* Return next random integer */
+
+static u32_t _rand(void)
+
+{
+
+    next = next * 1103515245L + 12345;
+
+    return (unsigned int) (next / 65536L) % 32768L;
+
+}
+
 static int entropy_source(void *data, unsigned char *output, size_t len,
 			  size_t *olen)
 {
@@ -110,7 +125,7 @@ static int entropy_source(void *data, unsigned char *output, size_t len,
 
 	ARG_UNUSED(data);
 
-	seed = sys_rand32_get();
+	seed = _rand();
 
 	if (len > sizeof(seed)) {
 		len = sizeof(seed);

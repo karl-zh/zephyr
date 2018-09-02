@@ -3687,7 +3687,6 @@ printk("zss len %d  %d  %d %d \n",MBEDTLS_SSL_BUFFER_LEN,
     }
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
 
-
     /* Check length against bounds of the current transform and version */
     if( ssl->transform_in == NULL )
     {

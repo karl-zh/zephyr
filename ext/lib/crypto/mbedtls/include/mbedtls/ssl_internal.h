@@ -168,7 +168,7 @@
 #define MBEDTLS_SSL_HEADER_LEN 13
 
 #define MBEDTLS_SSL_BUFFER_LEN  \
-    ( ( MBEDTLS_SSL_HEADER_LEN ) + ( MBEDTLS_SSL_PAYLOAD_LEN )  + 500)
+    ( ( MBEDTLS_SSL_HEADER_LEN ) + ( MBEDTLS_SSL_PAYLOAD_LEN ))
 
 /*
  * TLS extension flags (for extensions with outgoing ServerHello content

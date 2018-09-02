@@ -229,9 +229,9 @@
  * if you're using the Max Fragment Length extension and you know all your
  * peers are using it too!
  */
-//#if !defined(MBEDTLS_SSL_MAX_CONTENT_LEN)
+#if !defined(MBEDTLS_SSL_MAX_CONTENT_LEN)
 #define MBEDTLS_SSL_MAX_CONTENT_LEN         16384   /**< Size of the input / output buffer */
-//#endif
+#endif
 
 /* \} name SECTION: Module settings */
 
