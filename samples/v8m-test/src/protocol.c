@@ -746,13 +746,13 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 }
 
 static const char client_id[] = "projects/macro-precinct-211108/locations/us-central1/"
-	"registries/agross-registry/devices/karl-zh";
+	"registries/agross-registry/devices/karl-zh-ec";
 
-extern const unsigned char zepfull_private_der[];
-extern const unsigned int zepfull_private_der_len;
+//extern const unsigned char zepfull_private_der[];
+//extern const unsigned int zepfull_private_der_len;
 
-extern const unsigned char zepfull_ec_private_der[];
-extern const unsigned int zepfull_ec_private_der_len;
+//extern const unsigned char zepfull_ec_private_der[];
+//extern const unsigned int zepfull_ec_private_der_len;
 
 #if 0
 static void show_stack(void)
@@ -808,7 +808,7 @@ void mqtt_startup(void)
 	conmsg.clean_session = 1;
 	conmsg.client_id = (char *)client_id;  /* Discard const */
 	conmsg.client_id_len = strlen(client_id);
-	conmsg.keep_alive = 60 * 2; /* Two minutes */
+	conmsg.keep_alive = 60 * 20; /* Two minutes */
 	conmsg.password = jwt_buffer;
 	conmsg.password_len = strlen(jwt_buffer);//jwt_payload_len(&jb); -
 
@@ -850,7 +850,8 @@ void mqtt_startup(void)
 #if 1
 	/* Try subscribing to the device state message. */
 	static const char *topics[] = {
-		"/devices/zepfull/config",
+	    "/projects/macro-precinct-211108/topics/demo",
+//		"/devices/zepfull/config",
 	};
 	static const enum mqtt_qos qoss[] = {
 		MQTT_QoS1,
