@@ -746,7 +746,7 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 }
 
 static const char client_id[] = "projects/macro-precinct-211108/locations/us-central1/"
-	"registries/agross-registry/devices/karl-zh-cert";
+	"registries/agross-registry/devices/karl-zh";
 
 extern const unsigned char zepfull_private_der[];
 extern const unsigned int zepfull_private_der_len;
