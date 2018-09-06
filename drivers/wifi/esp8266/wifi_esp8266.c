@@ -380,7 +380,7 @@ static void esp8266_work_handler(struct k_work *work)
 		if (foo_data.transaction |= ESP8266_IDLE) {
 			k_delayed_work_submit(&foo_data.work, 500);
 		} else {
-            len = sprintf(foo_data.tx_buf, "AT+CIPSNTPCFG=1,8\r\n");
+            len = sprintf(foo_data.tx_buf, "AT+CIPSNTPCFG=1,8,\"time.google.com\"\r\n");
             foo_data.tx_head = 0;
             foo_data.tx_tail = len;
             esp8266_set_request_state(ESP8266_ECHO);

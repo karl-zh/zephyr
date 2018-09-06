@@ -539,7 +539,7 @@ static struct device *esp8266_dev;
 static char rx_buf0[128];
 static char rx_buf1[128];
 
-#define AUDIENCE "macro-precinct-211108"
+#define AUDIENCE "our-chassis-213317"
 //"macro-precinct-211108"
 char jwt_buffer[512];
 
@@ -630,7 +630,7 @@ void main(void)
       jwt_cmd.buffer = jwt_buffer;
       jwt_cmd.buffer_size = (sizeof(jwt_buffer));
       jwt_cmd.iat = now - 2620802;// + 600;//414;
-      jwt_cmd.exp = jwt_cmd.iat + 60 * 20;
+      jwt_cmd.exp = jwt_cmd.iat + 60 * 60;
       jwt_cmd.aud = AUDIENCE;//"simple-demo";
       jwt_cmd.aud_len = strlen(jwt_cmd.aud);
       args[2] = 0;
