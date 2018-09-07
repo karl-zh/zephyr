@@ -711,7 +711,9 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 	SYS_LOG_ERR("Done with TCP client startup");
 }
 
-static const char client_id[] = "projects/our-chassis-213317/locations/us-central1/registries/musca_ecdsa/devices/arm_eval";
+//static const char client_id[] = "projects/our-chassis-213317/locations/europe-west1/registries/a5ds/devices/arm_eval";
+//static const char client_id[] = "projects/our-chassis-213317/locations/us-central1/registries/musca_ecdsa/devices/arm_eval";
+static const char client_id[] = "projects/macro-precinct-211108/locations/us-central1/registries/agross-registry/devices/karl-zh-ec";
 
 //extern const unsigned char zepfull_private_der[];
 //extern const unsigned int zepfull_private_der_len;
@@ -815,10 +817,15 @@ void mqtt_startup(void)
 #if 1
 	/* Try subscribing to the device state message. */
 	static const char *topics[] = {
+//      "projects/our-chassis-213317/topics/musca_demo",
 //	    "/projects/macro-precinct-211108/topics/demo",
+//"/devices/karl-zh-ec/state",
+    "/devices/karl-zh-ec/config",
+//    "/devices/karl-zh-ec/events",
+
 //		"/devices/arm_eval/state",
-		"/devices/arm_eval/config",
-    "/devices/arm_eval/events",
+//		"/devices/arm_eval/config",
+//    "/devices/arm_eval/events",
 //		"projects/our-chassis-213317/topics/events",
 	};
 	static const enum mqtt_qos qoss[] = {

@@ -539,8 +539,8 @@ static struct device *esp8266_dev;
 static char rx_buf0[128];
 static char rx_buf1[128];
 
-#define AUDIENCE "our-chassis-213317"
-//"macro-precinct-211108"
+//#define AUDIENCE "our-chassis-213317"
+#define AUDIENCE "macro-precinct-211108"
 char jwt_buffer[512];
 
 void main(void)
@@ -599,9 +599,10 @@ void main(void)
 	}
     uart_irq_rx_enable(uart0_dev);
 
-    esp8266_params.ssid= "iot-test";
+//    esp8266_params.ssid= "iot-test";
+    esp8266_params.ssid= "iot-360";
     esp8266_params.ssid_length = strlen(esp8266_params.ssid);
-    esp8266_params.psk = "aquaticphoenix998";
+    esp8266_params.psk = "shuo1988";
     esp8266_params.psk_length = strlen(esp8266_params.psk);
     esp8266_params.security = WIFI_SECURITY_TYPE_PSK;
     esp8266_api = (struct net_wifi_mgmt_offload *)esp8266_dev->driver_api;
