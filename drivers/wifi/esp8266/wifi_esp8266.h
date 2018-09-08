@@ -16,6 +16,7 @@
 
 #define ESP8266_MAX_CONNECTIONS	4
 #define ESP8266_BUF_SIZE	128
+#define ESP8266_TCP_RCV_BUF_MAX (3096)
 
 #define EVENT_GOT_IP	 BIT(0)
 #define EVENT_CONNECT	 BIT(1)
@@ -74,6 +75,7 @@ struct esp8266_data {
 	struct device *gpio_dev;
 };
 struct esp8266_data foo_data;
+char rx_buf[ESP8266_TCP_RCV_BUF_MAX];
 
 time_t k_time(time_t *ptr);
 
