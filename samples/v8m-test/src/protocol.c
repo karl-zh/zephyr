@@ -172,6 +172,7 @@ static int sock;
 /* State information.  This really should be in a structure per
  * instance. */
 static bool got_reply;
+static bool got_connected = false;
 
 static u8_t send_buf[1024];
 static u8_t recv_buf[1024];
@@ -185,8 +186,11 @@ static u16_t puback_ids[PUBACK_SIZE];
 static u16_t puback_head, puback_tail;
 
 /* The next time we should send a keep-alive packet. */
-static u64_t next_alive;
-#define ALIVE_TIME (60 * MSEC_PER_SEC)
+u32_t idle_counter = 0;
+u32_t pre_idle_counter = 0;
+//#define ALIVE_TIME (30 * MSEC_PER_SEC)
+#define ALIVE_TIME (5)
+
 
 static void process_connack(u8_t *buf, size_t size)
 {
@@ -307,7 +311,7 @@ static int check_read(mbedtls_ssl_context *context)
 
 	while (size > 0 && size <= recv_used) {
 		if (size > sizeof(recv_buf)) {
-			SYS_LOG_ERR("FAILURE: received packet larger than buffer: %d > %d",
+			printk("FAILURE: received packet larger than buffer: %d > %d\n",
 				    size, sizeof(recv_buf));
 			// TODO: Discard this packet, although there probably
 			// isn't really a way to recover from this.
@@ -393,17 +397,8 @@ static int tcp_isr(struct device *dev)
     uart_irq_update(dev);
 
     while(uart_irq_rx_ready(foo_data.uart_dev)){
-#if 0 //full_queue in isr will lead a fatal fault,no idea now
-        if (full_queue(&tcp_q)) {
-            /* drain over flow */
-            printk("overflow on read - discarding\n");
-            uart_fifo_read(dev, &c, 1);
-            continue;
-        }
-#endif
         /* read into circular buffer onto head */
         uart_fifo_read(dev, &c, 1);
-//        printk("tcp isr %x\n", c);
         en_queue(&tcp_q, c);
     }
 }
@@ -439,11 +434,6 @@ static int tcp_rx(void *ctx,
         pdump(buf, count);
         printk("----- END RECV -----\n");
         return lent;
-    }
-
-    if (count > 0){
-        printk("tcp rx %d, %d\n", count, len);
-        return count;
     }
 
 	switch errno {
@@ -496,6 +486,7 @@ static int tls_perform(tls_action action, void *data)
 
 		SYS_LOG_INF("polling: %d", events);
         k_sleep(1500);
+        res = 0;
 //      res = zsock_poll(fds, 1, 250);
 		if (res < 0) {
 			SYS_LOG_ERR("Socket poll error: %d\n", errno);
@@ -561,11 +552,15 @@ static int action_idle(void *data)
 {
 	struct idle_action *act = data;
 
+	printk("\n idle counter %d %d\n",idle_counter, pre_idle_counter);
+    if (got_connected && ((idle_counter - pre_idle_counter) > ALIVE_TIME)) {
+        pre_idle_counter = idle_counter;
+        return 1;
+    }
 	/* If we need to send a keep alive, just return immediately.
 	 */
-	if (next_alive != 0 && k_uptime_get() >= next_alive) {
-		return 1;
-	}
+        if (got_connected)
+            idle_counter++;
 
 	int res = check_read(act->context);
     printk("idle %d %d %d %d\n", res, got_reply, puback_head, puback_tail);
@@ -711,15 +706,7 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 	SYS_LOG_ERR("Done with TCP client startup");
 }
 
-//static const char client_id[] = "projects/our-chassis-213317/locations/europe-west1/registries/a5ds/devices/arm_eval";
-//static const char client_id[] = "projects/our-chassis-213317/locations/us-central1/registries/musca_ecdsa/devices/arm_eval";
 static const char client_id[] = "projects/macro-precinct-211108/locations/us-central1/registries/agross-registry/devices/karl-zh-ec";
-
-//extern const unsigned char zepfull_private_der[];
-//extern const unsigned int zepfull_private_der_len;
-
-//extern const unsigned char zepfull_ec_private_der[];
-//extern const unsigned int zepfull_ec_private_der_len;
 
 #if 0
 static void show_stack(void)
@@ -736,6 +723,46 @@ static void show_stack(void)
 	}
 }
 #endif
+
+#define TOPIC "/devices/karl-zh-ec/state"
+static void publish_state(void)
+{
+    char pubmsg[64];
+    int res;
+	u16_t send_len = 0;
+	struct write_action wract = {
+		.context = &the_ssl,
+		.buf = send_buf,
+		.len = send_len,
+	};
+    sprintf(pubmsg, "Pub:%d, %d\n", _rand(), idle_counter);
+	/* Try sending a state update. */
+	struct mqtt_publish_msg pmsg = {
+		.dup = 0,
+		.qos = MQTT_QoS1,
+		.retain = 1,
+		.pkt_id = 0xfd12,
+		.topic = TOPIC,
+		.topic_len = strlen(TOPIC),
+		.msg = pubmsg,
+		.msg_len = strlen(pubmsg),
+	};
+	res = mqtt_pack_publish(send_buf, &send_len, sizeof(send_buf),
+				&pmsg);
+
+	wract.buf = send_buf;
+	wract.len = send_len;
+	pdump(send_buf, send_len);
+	res = tls_perform(action_write, &wract);
+	printk("Send result: %d\n", res);
+	if (res < 0) {
+		return;
+	}
+	if (res != send_len) {
+		printk("Short send\n");
+	}
+    printk("Publish packet: res=%d, len=%d\n", res, send_len);
+}
 
 void mqtt_startup(void)
 {
@@ -775,9 +802,9 @@ void mqtt_startup(void)
 	conmsg.clean_session = 1;
 	conmsg.client_id = (char *)client_id;  /* Discard const */
 	conmsg.client_id_len = strlen(client_id);
-	conmsg.keep_alive = 60 * 60; /* Two minutes */
+	conmsg.keep_alive = 60 * 3; /* Two minutes */
 	conmsg.password = jwt_buffer;
-	conmsg.password_len = strlen(jwt_buffer);//jwt_payload_len(&jb); -
+	conmsg.password_len = strlen(jwt_buffer);
 
 	printk("len1 = %d, len2 = %d\n", conmsg.password_len,
 	       strlen(jwt_buffer));
@@ -813,20 +840,12 @@ void mqtt_startup(void)
 
 	printk("Done with connect\n");
 	got_reply = false;
+    got_connected = true;
 
 #if 1
 	/* Try subscribing to the device state message. */
 	static const char *topics[] = {
-//      "projects/our-chassis-213317/topics/musca_demo",
-//	    "/projects/macro-precinct-211108/topics/demo",
-//"/devices/karl-zh-ec/state",
-    "/devices/karl-zh-ec/config",
-//    "/devices/karl-zh-ec/events",
-
-//		"/devices/arm_eval/state",
-//		"/devices/arm_eval/config",
-//    "/devices/arm_eval/events",
-//		"projects/our-chassis-213317/topics/events",
+        "/devices/karl-zh-ec/config",
 	};
 	static const enum mqtt_qos qoss[] = {
 		MQTT_QoS1,
@@ -834,8 +853,12 @@ void mqtt_startup(void)
 	res = mqtt_pack_subscribe(send_buf, &send_len, sizeof(send_buf),
 				  _rand() & 0xFFFF, 1, topics, qoss);
 	printk("Subscribe packet: res=%d, len=%d\n", res, send_len);
+
 #else
-#define TOPIC "/devices/zepfull/state"
+
+//#define TOPIC "/devices/zepfull/state"
+#define TOPIC "/devices/karl-zh-ec/state"
+
 #define MESSAGE "Some more state"
 	/* Try sending a state update. */
 	struct mqtt_publish_msg pmsg = {
@@ -856,7 +879,6 @@ void mqtt_startup(void)
 	wract.len = send_len;
 	pdump(send_buf, send_len);
 	res = tls_perform(action_write, &wract);
-    //res = action_write(&wract);
 	printk("Send result: %d\n", res);
 	if (res < 0) {
 		return;
@@ -864,7 +886,7 @@ void mqtt_startup(void)
 	if (res != send_len) {
 		printk("Short send\n");
 	}
-printk("zss line %d\n", __LINE__);
+
 #if 0
 	while (!got_reply) {
 		printk("Waiting for SUBACK\n");
@@ -881,23 +903,30 @@ printk("zss line %d\n", __LINE__);
 #endif
 
 	got_reply = 0;
+    publish_state();
 
-	next_alive = k_uptime_get() + ALIVE_TIME;
-    printk("zss line %d\n", __LINE__);
+    res = mqtt_pack_pingreq(send_buf, &send_len, sizeof(send_buf));
+    printk("Send 1st ping, res=%d, len=%d\n", res, send_len);
+
+    wract.buf = send_buf;
+    wract.len = send_len;
+    pdump(send_buf, send_len);
+    res = tls_perform(action_write, &wract);
+
+    if (res != send_len) {
+        SYS_LOG_ERR("Problem sending ping: %d", res);
+    }
 
 	while (1) {
 		struct idle_action idact = {
 			.context = &the_ssl,
 		};
-#if 1
-        printk("zss line %d\n", __LINE__);
+
 		res = tls_perform(action_idle, &idact);
 		if (res <= 0) {
 			printk("Idle error: %d\n", res);
 			return;
 		}
-        #endif
-        printk("zss line %d\n", __LINE__);
 
 		while (puback_head != puback_tail) {
 			printk("head=%d, tail=%d\n", puback_head, puback_tail);
@@ -918,10 +947,9 @@ printk("zss line %d\n", __LINE__);
 				SYS_LOG_ERR("Problem sending PUBACK: %d", res);
 			}
 
-			next_alive = k_uptime_get() + ALIVE_TIME;
 		}
 
-		if (k_uptime_get() >= next_alive) {
+		if (res == 1) {
 			res = mqtt_pack_pingreq(send_buf, &send_len, sizeof(send_buf));
 			printk("Send ping, res=%d, len=%d\n", res, send_len);
 
@@ -934,8 +962,7 @@ printk("zss line %d\n", __LINE__);
 				SYS_LOG_ERR("Problem sending ping: %d", res);
 			}
 
-			next_alive = k_uptime_get() + ALIVE_TIME;
-
+            publish_state();
 			// show_stack();
 		}
 	}
