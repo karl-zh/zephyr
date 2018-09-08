@@ -629,8 +629,8 @@ void main(void)
       args[1] = 0;
       jwt_cmd.buffer = jwt_buffer;
       jwt_cmd.buffer_size = (sizeof(jwt_buffer));
-      jwt_cmd.iat = now;
-      jwt_cmd.exp = jwt_cmd.iat + 60 * 5;
+      jwt_cmd.iat = now - 2620802;// + 600;//414;
+      jwt_cmd.exp = jwt_cmd.iat + 60 * 20;
       jwt_cmd.aud = AUDIENCE;//"simple-demo";
       jwt_cmd.aud_len = strlen(jwt_cmd.aud);
       args[2] = 0;
