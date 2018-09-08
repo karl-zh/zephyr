@@ -57,7 +57,7 @@ K_MUTEX_DEFINE(dev_mutex);
 
 extern char *strtok_r(char *, const char *, char **);
 
-static struct esp8266_data foo_data;
+struct esp8266_data foo_data;
 
 static void esp8266_uart_send(struct device *dev)
 {
