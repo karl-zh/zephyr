@@ -27,6 +27,7 @@
 #include <mbedtls/debug.h>
 #include <wifi_esp8266.h>
 #include "lqueue.h"
+#include <tfm_led_veneers.h>
 
 #ifdef CONFIG_STDOUT_CONSOLE
 # include <stdio.h>
@@ -189,7 +190,7 @@ static u16_t puback_head, puback_tail;
 u32_t idle_counter = 0;
 u32_t pre_idle_counter = 0;
 //#define ALIVE_TIME (30 * MSEC_PER_SEC)
-#define ALIVE_TIME (5)
+#define ALIVE_TIME (30)
 
 
 static void process_connack(u8_t *buf, size_t size)
@@ -416,7 +417,7 @@ static int tcp_rx(void *ctx,
 
     int rec_time = 0;
     int lent = len;
-    while(empty_queue(&tcp_q) && rec_time < 0xFFFFFF)rec_time++;
+    while(empty_queue(&tcp_q) && rec_time < 0x1FFFFF)rec_time++;
     if (rec_time > 0xFFFFF) {
         return MBEDTLS_ERR_SSL_WANT_READ;
     }
@@ -485,7 +486,7 @@ static int tls_perform(tls_action action, void *data)
 		};
 
 		SYS_LOG_INF("polling: %d", events);
-        k_sleep(1500);
+        k_sleep(500);
         res = 0;
 //      res = zsock_poll(fds, 1, 250);
 		if (res < 0) {
@@ -551,8 +552,10 @@ struct idle_action {
 static int action_idle(void *data)
 {
 	struct idle_action *act = data;
+    uint32_t args[4] = {0};
 
 	printk("\n idle counter %d %d\n",idle_counter, pre_idle_counter);
+    tfm_core_test_svc(tfm_led_veneer_toggle, args);
     if (got_connected && ((idle_counter - pre_idle_counter) > ALIVE_TIME)) {
         pre_idle_counter = idle_counter;
         return 1;
@@ -706,7 +709,9 @@ void tls_client(const char *hostname, struct zsock_addrinfo *host, int port)
 	SYS_LOG_ERR("Done with TCP client startup");
 }
 
-static const char client_id[] = "projects/macro-precinct-211108/locations/us-central1/registries/agross-registry/devices/karl-zh-ec";
+//static const char client_id[] = "projects/macro-precinct-211108/locations/us-central1/registries/agross-registry/devices/karl-zh-ec";
+static const char client_id[] = "projects/our-chassis-213317/locations/us-central1/registries/musca_ecdsa/devices/arm_eval";
+
 
 #if 0
 static void show_stack(void)
@@ -724,7 +729,7 @@ static void show_stack(void)
 }
 #endif
 
-#define TOPIC "/devices/karl-zh-ec/state"
+#define TOPIC "/devices/arm_eval/state"
 static void publish_state(void)
 {
     char pubmsg[64];
@@ -845,7 +850,7 @@ void mqtt_startup(void)
 #if 1
 	/* Try subscribing to the device state message. */
 	static const char *topics[] = {
-        "/devices/karl-zh-ec/config",
+        "/devices/arm_eval/config",
 	};
 	static const enum mqtt_qos qoss[] = {
 		MQTT_QoS1,
@@ -887,7 +892,7 @@ void mqtt_startup(void)
 		printk("Short send\n");
 	}
 
-#if 0
+#if 1
 	while (!got_reply) {
 		printk("Waiting for SUBACK\n");
 		struct idle_action idact = {
@@ -918,15 +923,17 @@ void mqtt_startup(void)
     }
 
 	while (1) {
-		struct idle_action idact = {
-			.context = &the_ssl,
-		};
 
-		res = tls_perform(action_idle, &idact);
-		if (res <= 0) {
-			printk("Idle error: %d\n", res);
-			return;
-		}
+               struct idle_action idact = {
+                       .context = &the_ssl,
+               };
+
+               res = tls_perform(action_idle, &idact);
+               if (res <= 0) {
+                       printk("Idle error: %d\n", res);
+                       return;
+               }
+
 
 		while (puback_head != puback_tail) {
 			printk("head=%d, tail=%d\n", puback_head, puback_tail);

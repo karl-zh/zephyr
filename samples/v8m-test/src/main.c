@@ -8,6 +8,7 @@
 #include <misc/printk.h>
 #include <time.h>
 #include <tfm_sst_veneers.h>
+#include <tfm_led_veneers.h>
 //#include <tfm_ss_core_test_veneers.h>
 //#include <tfm_ss_core_test_2_veneers.h>
 #include <wifi_esp8266.h>
@@ -539,8 +540,8 @@ static struct device *esp8266_dev;
 static char rx_buf0[128];
 static char rx_buf1[128];
 
-//#define AUDIENCE "our-chassis-213317"
-#define AUDIENCE "macro-precinct-211108"
+#define AUDIENCE "our-chassis-213317"
+//#define AUDIENCE "macro-precinct-211108"
 char jwt_buffer[512];
 
 void main(void)
@@ -644,7 +645,6 @@ void main(void)
       }
       printk("After the token: %ld ticks\n", b - a);
 #endif
-   mqtt_startup();
 
 #if 0
    /* After setting the time, spin periodically, and make sure
@@ -673,7 +673,9 @@ void main(void)
 #endif
 
    while (1) {
-           k_sleep(K_MSEC(1000));
+    mqtt_startup();
+    tfm_core_test_svc(tfm_led_veneer_toggle, args);
+    k_sleep(K_MSEC(1000));
    }
    /*
    if (err != TFM_SST_ERR_SUCCESS) {
