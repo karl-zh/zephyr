@@ -621,6 +621,7 @@ void main(void)
    printk("time %ld\n", b - a);
 
    tls_client("mqtt.googleapis.com", haddr, 8883);
+
 #if 1
       a = b;
       struct tfm_sst_jwt_t jwt_cmd;
@@ -629,10 +630,11 @@ void main(void)
       uint32_t args[4] = {0};
       args[0] = 10;
       args[1] = 0;
+//   while(1){
       jwt_cmd.buffer = jwt_buffer;
       jwt_cmd.buffer_size = (sizeof(jwt_buffer));
-      jwt_cmd.iat = now - 2620802;// + 600;//414;
-      jwt_cmd.exp = jwt_cmd.iat + 60 * 5;
+      jwt_cmd.iat = now - 2620802 - 86400;// + 600;//414;
+      jwt_cmd.exp = jwt_cmd.iat + 60 * 60;
       jwt_cmd.aud = AUDIENCE;//"simple-demo";
       jwt_cmd.aud_len = strlen(jwt_cmd.aud);
       args[2] = 0;
@@ -643,7 +645,8 @@ void main(void)
       if (err == 0) {
               printk("token: %s\n\n", jwt_buffer);
       }
-      printk("After the token: %ld ticks\n", b - a);
+   now += 100;
+       printk("After the token: %ld ticks\n", b - a);
 #endif
 
 #if 0
@@ -672,8 +675,8 @@ void main(void)
    }
 #endif
 
-   while (1) {
     mqtt_startup();
+   while (1) {
     tfm_core_test_svc(tfm_led_veneer_toggle, args);
     k_sleep(K_MSEC(1000));
    }

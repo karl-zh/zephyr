@@ -807,7 +807,7 @@ void mqtt_startup(void)
 	conmsg.clean_session = 1;
 	conmsg.client_id = (char *)client_id;  /* Discard const */
 	conmsg.client_id_len = strlen(client_id);
-	conmsg.keep_alive = 60 * 3; /* Two minutes */
+    conmsg.keep_alive = 60 * 60; /* Two minutes */
 	conmsg.password = jwt_buffer;
 	conmsg.password_len = strlen(jwt_buffer);
 
