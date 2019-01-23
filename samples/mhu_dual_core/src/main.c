@@ -99,16 +99,17 @@ struct sysctrl_t {
 										(CONFIG_SRAM_SIZE * 1024) - 8)
 #define NON_SECURE_FLASH_ADDRESS	(192 * 1024)
 #define NON_SECURE_IMAGE_HEADER		(0x400)
+#define NON_SECURE_FLASH_OFFSET		(0x10000000)
 
 struct device *mhu0;
-volatile uint32_t *cnt = (volatile uint32_t*)SHARED_MEM_BASE;
+volatile uint32_t *cnt = NULL;//(volatile uint32_t*)SHARED_MEM_BASE;
 uint32_t test_mhu = 0;
 
 static void wakeup_cpu1(void)
 {
 	struct sysctrl_t *ptr = (struct sysctrl_t *)CMSDK_SYSCTRL_BASE_S;
-	ptr->initsvtor1 = 0x10230400;//CONFIG_FLASH_BASE_ADDRESS + NON_SECURE_FLASH_ADDRESS +
-						//NON_SECURE_IMAGE_HEADER;
+	ptr->initsvtor1 = CONFIG_FLASH_BASE_ADDRESS + NON_SECURE_FLASH_ADDRESS +
+						NON_SECURE_IMAGE_HEADER - NON_SECURE_FLASH_OFFSET;
 	ptr->cpuwait = 0;
 }
 
@@ -124,7 +125,7 @@ static void init_isolation_hw(void)
     /* Configures non-secure memory spaces in the target */
     sau_and_idau_cfg();
     mpc_init_cfg();
-    ppc_init_cfg();
+//    ppc_init_cfg();
 }
 
 /* Prioritise secure exceptions to avoid NS being able to pre-empt secure
@@ -144,24 +145,47 @@ static void set_secure_exception_priorities(void)
                  (AIRCR & ~SCB_AIRCR_VECTKEY_Msk);
 }
 
+static void set_to_ns_code(void)
+{
+    /* Initialization is done, set thread mode to unprivileged. */
+    CONTROL_Type ctrl;
+
+    ctrl.w = __get_CONTROL();
+    ctrl.b.nPRIV = 1;
+    __set_CONTROL(ctrl.w);
+    /* All changes made to memory will be effective after this point */
+    __DSB();
+    __ISB();
+}
+
 static int main_cpu_0(void)
 {
+    *cnt = (volatile uint32_t*)SHARED_MEM_BASE;
+
     (*cnt) = 0;
-    init_isolation_hw();
+    /* Enables fault handlers */
+    enable_fault_handlers();
+
+    /* Configures the system reset request properties */
+    system_reset_cfg();
+
+//    init_isolation_hw();
+    set_secure_exception_priorities();
+    printk("CPU0 init done.\n");
+
+    wakeup_cpu1();
 
     while(1)
     {
         *cnt = (*cnt) + 1;
         if((*cnt & 0xFFFF) == 0) {
-            printk("MHU set cpu 1.\n");
             mhu_set_value(mhu0, MHU_CPU1, 1);
         }
         if (test_mhu > 20) {
             printk("MHU Test Done.\n");
-            while(1){}
-        }
-        if(*cnt == 15) {
-            wakeup_cpu1();
+            while(1){
+                ;
+            }
         }
     }
 }
@@ -175,6 +199,14 @@ static void mhu_isr_callback(void *context, enum mhu_cpu_id_t cpu_id,
 
 void main(void)
 {
+    if (musca_platform_get_cpu_id() == MHU_CPU0) {
+        init_isolation_hw();
+    }
+    else
+    {
+//        set_to_ns_code();
+    }
+
     printk("Hello From %s CPU %d, cnt add 0x%x,%x\n", CONFIG_BOARD,
         musca_platform_get_cpu_id(), cnt, *cnt);
 

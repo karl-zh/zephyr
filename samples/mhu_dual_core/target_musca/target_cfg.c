@@ -25,7 +25,7 @@ extern ARM_DRIVER_MPC Driver_ISRAM0_MPC, Driver_ISRAM1_MPC;
 extern ARM_DRIVER_MPC Driver_ISRAM2_MPC, Driver_ISRAM3_MPC;
 
 #define NS_ROM_BASE    (0x230400)
-#define NS_ROM_SIZE    (192 * 1024)
+#define NS_ROM_SIZE    ((32 * 1024) - 0x400)
 #define NS_RAM_BASE    (0x20010000)
 #define NS_RAM_SIZE    (32 * 1024)
 
@@ -35,6 +35,42 @@ extern ARM_DRIVER_MPC Driver_ISRAM2_MPC, Driver_ISRAM3_MPC;
 
 /* Allows software, via SAU, to define the code region as a NSC */
 #define NSCCFG_CODENSC  1
+
+/* Enable system reset request for CPU 0 */
+#define ENABLE_CPU0_SYSTEM_RESET_REQUEST (1U << 4U)
+
+/* To write into AIRCR register, 0x5FA value must be write to the VECTKEY field,
+ * otherwise the processor ignores the write.
+ */
+#define SCB_AIRCR_WRITE_MASK ((0x5FAUL << SCB_AIRCR_VECTKEY_Pos))
+
+void enable_fault_handlers(void)
+{
+    /* Enables BUS, MEM, USG and Secure faults */
+    SCB->SHCSR |= SCB_SHCSR_USGFAULTENA_Msk
+                  | SCB_SHCSR_BUSFAULTENA_Msk
+                  | SCB_SHCSR_MEMFAULTENA_Msk
+                  | SCB_SHCSR_SECUREFAULTENA_Msk;
+}
+
+void system_reset_cfg(void)
+{
+    struct sysctrl_t *sysctrl = (struct sysctrl_t *)CMSDK_SYSCTRL_BASE_S;
+    uint32_t reg_value = SCB->AIRCR;
+
+    /* Enable system reset request for CPU 0, to be triggered via
+     * NVIC_SystemReset function.
+     */
+    sysctrl->resetmask |= ENABLE_CPU0_SYSTEM_RESET_REQUEST;
+
+    /* Clear SCB_AIRCR_VECTKEY value */
+    reg_value &= ~(uint32_t)(SCB_AIRCR_VECTKEY_Msk);
+
+    /* Enable system reset request only to the secure world */
+    reg_value |= (uint32_t)(SCB_AIRCR_WRITE_MASK | SCB_AIRCR_SYSRESETREQS_Msk);
+
+    SCB->AIRCR = reg_value;
+}
 
 /*------------------- SAU/IDAU configuration functions -----------------------*/
 
@@ -63,7 +99,7 @@ void sau_and_idau_cfg(void)
                 | SAU_RLAR_NSC_Msk;*/
 
     /* Configure the peripherals space */
-    SAU->RNR  = 3;//TFM_NS_REGION_PERIPH_1;
+    SAU->RNR  = 2;//TFM_NS_REGION_PERIPH_1;
     SAU->RBAR = (PERIPHERALS_BASE_NS_START & SAU_RBAR_BADDR_Msk);
     SAU->RLAR = (PERIPHERALS_BASE_NS_END & SAU_RLAR_LADDR_Msk)
                 | SAU_RLAR_ENABLE_Msk;
@@ -86,10 +122,10 @@ void mpc_init_cfg(void)
     ARM_DRIVER_MPC* mpc_data_region2 = &Driver_ISRAM2_MPC;
     ARM_DRIVER_MPC* mpc_data_region3 = &Driver_ISRAM3_MPC;
 
-   // Driver_CODE_SRAM_MPC.Initialize();
-   // Driver_CODE_SRAM_MPC.ConfigRegion(NS_ROM_BASE,//memory_regions.non_secure_partition_base,
-   //                              (NS_ROM_BASE + NS_ROM_SIZE - 1),//memory_regions.non_secure_partition_limit,
-   //                              ARM_MPC_ATTR_NONSECURE);
+    Driver_CODE_SRAM_MPC.Initialize();
+    Driver_CODE_SRAM_MPC.ConfigRegion(NS_ROM_BASE,//memory_regions.non_secure_partition_base,
+                                 (NS_ROM_BASE + NS_ROM_SIZE - 1),//memory_regions.non_secure_partition_limit,
+                                 ARM_MPC_ATTR_NONSECURE);
 
     mpc_data_region0->Initialize();
     mpc_data_region0->ConfigRegion(MPC_ISRAM0_RANGE_BASE_S,
@@ -139,7 +175,6 @@ void mpc_init_cfg(void)
     __ISB();
 }
 
-#if 1
 /*---------------------- PPC configuration functions -------------------------*/
 
 void ppc_init_cfg(void)
@@ -170,4 +205,3 @@ void ppc_init_cfg(void)
      */
     spctrl->secrespcfg |= 1U;
 }
-#endif
