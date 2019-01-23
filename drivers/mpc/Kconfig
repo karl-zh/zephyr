@@ -1,0 +1,21 @@
+menuconfig MPC
+	bool "arm MPC drivers"
+	help
+	  Include interrupt-based inter-processor Message Handling Unit
+	  drivers in system configuration
+
+if MHU
+
+config MHU0
+	bool "MHU0 driver"
+	depends on MHU
+	help
+	  Enable Driver for MHU0
+
+config MHU1
+	bool "MHU1 driver"
+	depends on MHU
+	help
+	  Enable Driver for MHU1
+
+endif # MHU

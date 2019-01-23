@@ -8,6 +8,7 @@
 #include <misc/printk.h>
 #include <mhu.h>
 
+#if 0
 /* System control memory mapped register access structure */
 struct sysctrl_t {
     volatile uint32_t secdbgstat;             /* (R/ ) Secure Debug Configuration
@@ -85,6 +86,7 @@ struct sysctrl_t {
     volatile uint32_t cidr2;                  /* (R/ ) Component ID 2 */
     volatile uint32_t cidr3;                  /* (R/ ) Component ID 3 */
 };
+#endif
 
 /* (Secure System Control) Base Address */
 #define MUSCA_SYSTEM_CTRL_S_BASE	(0x50021000UL)
@@ -117,14 +119,41 @@ static enum mhu_cpu_id_t musca_platform_get_cpu_id(void)
 	return (enum mhu_cpu_id_t)*p_cpu_id;
 }
 
+static void init_isolation_hw(void)
+{
+    /* Configures non-secure memory spaces in the target */
+    sau_and_idau_cfg();
+    mpc_init_cfg();
+    ppc_init_cfg();
+}
+
+/* Prioritise secure exceptions to avoid NS being able to pre-empt secure
+ * SVC or SecureFault
+ */
+static void set_secure_exception_priorities(void)
+{
+    uint32_t VECTKEY;
+    SCB_Type *scb = SCB;
+    uint32_t AIRCR;
+
+    /* Set PRIS flag is AIRCR */
+    AIRCR = scb->AIRCR;
+    VECTKEY = (~AIRCR & SCB_AIRCR_VECTKEYSTAT_Msk);
+    scb->AIRCR = SCB_AIRCR_PRIS_Msk |
+                 VECTKEY |
+                 (AIRCR & ~SCB_AIRCR_VECTKEY_Msk);
+}
+
 static int main_cpu_0(void)
 {
     (*cnt) = 0;
+    init_isolation_hw();
 
     while(1)
     {
         *cnt = (*cnt) + 1;
         if((*cnt & 0xFFFF) == 0) {
+            printk("MHU set cpu 1.\n");
             mhu_set_value(mhu0, MHU_CPU1, 1);
         }
         if (test_mhu > 20) {

@@ -1,7 +1,17 @@
 /*
  * Copyright (c) 2017-2018 Arm Limited
  *
- * SPDX-License-Identifier: Apache-2.0
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 /*
@@ -19,7 +29,8 @@ extern "C" {
 /* ================                                Interrupt Number Definition                                ================ */
 /* =========================================================================================================================== */
 
-typedef enum IRQn {
+typedef enum IRQn
+{
 /* ===========================================  Core Specific Interrupt Numbers  ============================================= */
   NonMaskableInt_IRQn       = -14,              /*  -14 Non Maskable Interrupt                                                 */
   HardFault_IRQn            = -13,              /*  -13 HardFault Interrupt                                                    */
@@ -119,20 +130,74 @@ typedef enum IRQn {
 /* ================                           Processor and Core Peripheral Section                           ================ */
 /* =========================================================================================================================== */
 
-/* --------  Configuration of the Cortex-M33 Processor and Core Peripherals  ------ */
-#define __CM33_REV                0x0000U   /* Core revision r0p1 */
-#define __SAUREGION_PRESENT       1U        /* SAU regions present */
-#define __MPU_PRESENT             1U        /* MPU present */
-#define __VTOR_PRESENT            1U        /* VTOR present */
-#define __NVIC_PRIO_BITS          3U        /* Number of Bits used for Priority Levels */
-#define __Vendor_SysTickConfig    0U        /* Set to 1 if different SysTick Config is used */
+#include "system_core_musca.h"
 
-/* CORE 0 doesn't have FPU or DSP */
-#define __FPU_PRESENT             0U        /* no FPU present */
-#define __DSP_PRESENT             0U        /* no DSP extension present */
+/** @} */ /* End of group Configuration_of_CMSIS */
 
 
 #include <core_cm33.h>                           /*!< ARM Cortex-M33 processor and core peripherals */
+#include "system_musca.h"                        /*!< Musca System */
+
+
+
+/* ========================================  Start of section using anonymous unions  ======================================== */
+#if   defined (__CC_ARM)
+  #pragma push
+  #pragma anon_unions
+#elif defined (__ICCARM__)
+  #pragma language=extended
+#elif defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wc11-extensions"
+  #pragma clang diagnostic ignored "-Wreserved-id-macro"
+#elif defined (__GNUC__)
+  /* anonymous unions are enabled by default */
+#elif defined (__TMS470__)
+  /* anonymous unions are enabled by default */
+#elif defined (__TASKING__)
+  #pragma warning 586
+#elif defined (__CSMC__)
+  /* anonymous unions are enabled by default */
+#else
+  #warning Not supported compiler type
+#endif
+
+
+/* =========================================================================================================================== */
+/* ================                            Device Specific Peripheral Section                             ================ */
+/* =========================================================================================================================== */
+
+
+/** @addtogroup Device_Peripheral_peripherals
+  * @{
+  */
+
+/*@}*/ /* end of group <Device>_Peripherals */
+
+/* =========================================  End of section using anonymous unions  ========================================= */
+#if   defined (__CC_ARM)
+  #pragma pop
+#elif defined (__ICCARM__)
+  /* leave anonymous unions enabled */
+#elif (__ARMCC_VERSION >= 6010050)
+  #pragma clang diagnostic pop
+#elif defined (__GNUC__)
+  /* anonymous unions are enabled by default */
+#elif defined (__TMS470__)
+  /* anonymous unions are enabled by default */
+#elif defined (__TASKING__)
+  #pragma warning restore
+#elif defined (__CSMC__)
+  /* anonymous unions are enabled by default */
+#else
+  #warning Not supported compiler type
+#endif
+
+
+/* =========================================================================================================================== */
+/* ================                          Device Specific Peripheral Address Map                           ================ */
+/* =========================================================================================================================== */
+
 
 /** @addtogroup Device_Peripheral_peripheralAddr
   * @{
@@ -226,6 +291,7 @@ typedef enum IRQn {
 /** @addtogroup Device_Peripheral_declaration
   * @{
   */
+
 
 #ifdef __cplusplus
 }
