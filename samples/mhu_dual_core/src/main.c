@@ -109,7 +109,7 @@ static void wakeup_cpu1(void)
 {
 	struct sysctrl_t *ptr = (struct sysctrl_t *)CMSDK_SYSCTRL_BASE_S;
 	ptr->initsvtor1 = CONFIG_FLASH_BASE_ADDRESS + NON_SECURE_FLASH_ADDRESS +
-						NON_SECURE_IMAGE_HEADER - NON_SECURE_FLASH_OFFSET;
+						NON_SECURE_IMAGE_HEADER;// - NON_SECURE_FLASH_OFFSET;
 	ptr->cpuwait = 0;
 }
 
@@ -173,7 +173,7 @@ static int main_cpu_0(void)
     set_secure_exception_priorities();
     printk("CPU0 init done.\n");
 
-    wakeup_cpu1();
+//    wakeup_cpu1();
 
     while(1)
     {
@@ -201,6 +201,7 @@ void main(void)
 {
     if (musca_platform_get_cpu_id() == MHU_CPU0) {
         init_isolation_hw();
+        wakeup_cpu1();
     }
     else
     {

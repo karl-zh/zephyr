@@ -27,7 +27,7 @@ extern ARM_DRIVER_MPC Driver_ISRAM2_MPC, Driver_ISRAM3_MPC;
 #define NS_ROM_BASE    (0x230400)
 #define NS_ROM_SIZE    ((32 * 1024) - 0x400)
 #define NS_RAM_BASE    (0x20010000)
-#define NS_RAM_SIZE    (32 * 1024)
+#define NS_RAM_SIZE    (64 * 1024)
 
 /* Define Peripherals NS address range for the platform */
 #define PERIPHERALS_BASE_NS_START (0x40000000)
@@ -137,6 +137,9 @@ void mpc_init_cfg(void)
                                    MPC_ISRAM1_RANGE_LIMIT_S,
                                    ARM_MPC_ATTR_SECURE);
 
+
+
+#if 0
     mpc_data_region2->Initialize();
 
 #if defined(TEST_FRAMEWORK_S) || defined(TEST_FRAMEWORK_NS)
@@ -156,11 +159,11 @@ void mpc_init_cfg(void)
                                    ARM_MPC_ATTR_NONSECURE);
 #endif
 
+#endif
     mpc_data_region3->Initialize();
     mpc_data_region3->ConfigRegion(MPC_ISRAM3_RANGE_BASE_NS,
                                    MPC_ISRAM3_RANGE_LIMIT_NS,
                                    ARM_MPC_ATTR_NONSECURE);
-
     /* Lock down the MPC configuration */
     Driver_CODE_SRAM_MPC.LockDown();
     mpc_data_region0->LockDown();
