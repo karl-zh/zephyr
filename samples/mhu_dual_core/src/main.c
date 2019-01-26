@@ -6,7 +6,7 @@
 
 #include <zephyr.h>
 #include <misc/printk.h>
-#include <mhu.h>
+#include <ipm.h>
 
 #if 0
 /* System control memory mapped register access structure */
@@ -88,6 +88,12 @@ struct sysctrl_t {
 };
 #endif
 
+enum cpu_id_t {
+	MHU_CPU0 = 0,
+	MHU_CPU1,
+	MHU_CPU_MAX,
+};
+
 /* (Secure System Control) Base Address */
 #define MUSCA_SYSTEM_CTRL_S_BASE	(0x50021000UL)
 #define MUSCA_CPU_ID_UNIT_BASE		(0x5001F000UL)
@@ -113,11 +119,11 @@ static void wakeup_cpu1(void)
 	ptr->cpuwait = 0;
 }
 
-static enum mhu_cpu_id_t musca_platform_get_cpu_id(void)
+static u32_t musca_platform_get_cpu_id(void)
 {
-	volatile uint32_t* p_cpu_id = (volatile uint32_t*)MUSCA_CPU_ID_UNIT_BASE;
+	volatile u32_t* p_cpu_id = (volatile u32_t*)MUSCA_CPU_ID_UNIT_BASE;
 
-	return (enum mhu_cpu_id_t)*p_cpu_id;
+	return (u32_t)*p_cpu_id;
 }
 
 static void init_isolation_hw(void)
@@ -160,6 +166,7 @@ static void set_to_ns_code(void)
 
 static int main_cpu_0(void)
 {
+    const u32_t set_mhu = 1;
     *cnt = (volatile uint32_t*)SHARED_MEM_BASE;
 
     (*cnt) = 0;
@@ -179,7 +186,8 @@ static int main_cpu_0(void)
     {
         *cnt = (*cnt) + 1;
         if((*cnt & 0xFFFF) == 0) {
-            mhu_set_value(mhu0, MHU_CPU1, 1);
+            //mhu_set_value(mhu0, MHU_CPU1, 1);
+            ipm_send(mhu0, 0, MHU_CPU1, &set_mhu,1);
         }
         if (test_mhu > 20) {
             printk("MHU Test Done.\n");
@@ -190,7 +198,7 @@ static int main_cpu_0(void)
     }
 }
 
-static void mhu_isr_callback(void *context, enum mhu_cpu_id_t cpu_id,
+static void mhu_isr_callback(void *context, u32_t cpu_id,
 					volatile void *data)
 {
 	printk("MHU ISR on CPU %d\n", cpu_id);
@@ -199,6 +207,7 @@ static void mhu_isr_callback(void *context, enum mhu_cpu_id_t cpu_id,
 
 void main(void)
 {
+    const u32_t set_mhu = 1;
     if (musca_platform_get_cpu_id() == MHU_CPU0) {
         init_isolation_hw();
         wakeup_cpu1();
@@ -216,8 +225,7 @@ void main(void)
         printk("CPU %d, get MHU0 fail!\n", musca_platform_get_cpu_id());
     } else {
         printk("CPU %d, get MHU0 success!\n", musca_platform_get_cpu_id());
-        mhu_register_callback(mhu0, mhu_isr_callback,
-                mhu0, musca_platform_get_cpu_id);
+        ipm_register_callback(mhu0, mhu_isr_callback, mhu0);
     }
 
     if (musca_platform_get_cpu_id() == MHU_CPU0) {
@@ -227,7 +235,8 @@ void main(void)
     while(1)
     {
         if((*cnt & 0xFFFF) != 0 && (*cnt & 0x1FFF) == 0) {
-            mhu_set_value(mhu0, MHU_CPU0, 1);
+//            mhu_set_value(mhu0, MHU_CPU0, 1);
+            ipm_send(mhu0, 0, MHU_CPU0, &set_mhu,1);
             }
     }
 
