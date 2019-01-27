@@ -1,0 +1,8 @@
+sample:
+  description: MHU dual core sample
+    application
+  name: ipm_mhu_dual_core
+tests:
+  test:
+    tags: ipm
+    platform_whitelist: arm Musca A1 board
