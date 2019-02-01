@@ -29,7 +29,7 @@ static void notify(struct hil_proc *proc, struct proc_intr *intr_info)
 {
 	u32_t dummy_data = 0x12345678; /* Some data must be provided */
 
-	ipm_send(ipm_handle, 0, 0, &dummy_data, sizeof(dummy_data));
+	ipm_send(ipm_handle, 0, 0, &dummy_data, 1);//sizeof(dummy_data));
 }
 
 static int boot_cpu(struct hil_proc *proc, unsigned int load_addr)
@@ -74,7 +74,7 @@ static void release_shm(struct hil_proc *proc, struct metal_device *device,
 
 static int initialize(struct hil_proc *proc)
 {
-	ipm_handle = device_get_binding("MAILBOX_0");
+	ipm_handle = device_get_binding("MHU_0");//DT_ARM_MHU_0_LABEL
 	if (!ipm_handle) {
 		return -1;
 	}

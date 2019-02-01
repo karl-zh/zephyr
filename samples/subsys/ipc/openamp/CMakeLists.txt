@@ -3,13 +3,13 @@ cmake_minimum_required(VERSION 3.13.1)
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-set(BOARD lpcxpresso54114_m4)
+#set(BOARD lpcxpresso54114_m4)
 
 include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
 project(openamp)
 
 if(NOT ("${BOARD}" STREQUAL "lpcxpresso54114_m4"))
-  message(FATAL_ERROR "${BOARD} was specified, but this sample only supports lpcxpresso54114_m4")
+#  message(FATAL_ERROR "${BOARD} was specified, but this sample only supports lpcxpresso54114_m4")
 endif()
 
 enable_language(C ASM)
@@ -31,6 +31,6 @@ ExternalProject_Add(
   BUILD_BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/openamp_remote-prefix/src/openamp_remote-build/zephyr/zephyr.bin"
   # NB: Do we need to pass on more CMake variables?
 )
-add_dependencies(core_m0_inc_target openamp_remote)
+#add_dependencies(core_m0_inc_target openamp_remote)
 
 target_include_directories(app PRIVATE ${PLATFORM_DIR})

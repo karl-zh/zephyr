@@ -9,7 +9,7 @@
 
 #include <openamp/open_amp.h>
 
-#define RSC_TABLE_ADDRESS       0x04000000
+#define RSC_TABLE_ADDRESS       0x20018000 //0x04000000
 
 OPENAMP_PACKED_BEGIN
 struct lpc_resource_table {

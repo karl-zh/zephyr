@@ -12,7 +12,7 @@
 
 struct lpc_resource_table *rsc_table_ptr = (void *) RSC_TABLE_ADDRESS;
 
-#if defined(CPU_LPC54114J256BD64_cm4)
+#if defined(CONFIG_ARM_TRUSTZONE_M)
 static const struct lpc_resource_table rsc_table = {
 	.ver = 1,
 	.num = 2,
@@ -37,7 +37,7 @@ static const struct lpc_resource_table rsc_table = {
 
 void resource_table_init(void **table_ptr, int *length)
 {
-#if defined(CPU_LPC54114J256BD64_cm4)
+#if defined(CONFIG_ARM_TRUSTZONE_M)
 	/* Master: copy the resource table to shared memory. */
 	memcpy(rsc_table_ptr, &rsc_table, sizeof(struct lpc_resource_table));
 #endif
