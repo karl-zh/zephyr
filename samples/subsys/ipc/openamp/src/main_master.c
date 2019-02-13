@@ -19,6 +19,24 @@
 #include "platform.h"
 #include "resource_table.h"
 
+enum cpu_id_t {
+	MHU_CPU0 = 0,
+	MHU_CPU1,
+	MHU_CPU_MAX,
+};
+
+/* (Secure System Control) Base Address */
+#define SSE_200_SYSTEM_CTRL_S_BASE	(0x50021000UL)
+#define SSE_200_SYSTEM_CTRL_INITSVTOR1	(SSE_200_SYSTEM_CTRL_S_BASE + 0x114)
+#define SSE_200_SYSTEM_CTRL_CPU_WAIT	(SSE_200_SYSTEM_CTRL_S_BASE + 0x118)
+#define SSE_200_CPU_ID_UNIT_BASE	(0x5001F000UL)
+
+#define SHARED_MEM_BASE			(CONFIG_SRAM_BASE_ADDRESS + \
+						(CONFIG_SRAM_SIZE * 1024) - 8)
+#define NON_SECURE_FLASH_ADDRESS	(192 * 1024)
+#define NON_SECURE_IMAGE_HEADER		(0x400)
+#define NON_SECURE_FLASH_OFFSET		(0x10000000)
+
 #define APP_TASK_STACK_SIZE (512)
 K_THREAD_STACK_DEFINE(thread_stack, APP_TASK_STACK_SIZE);
 static struct k_thread thread_data;
@@ -67,6 +85,19 @@ static int send_message(unsigned int message)
 	return rpmsg_send(rp_channel, &message, sizeof(message));
 }
 
+static void wakeup_cpu1(void)
+{
+	/* Set the Initial Secure Reset Vector Register for CPU 1 */
+	*(u32_t *)(SSE_200_SYSTEM_CTRL_INITSVTOR1) =
+					CONFIG_FLASH_BASE_ADDRESS +
+					NON_SECURE_FLASH_ADDRESS +
+					NON_SECURE_IMAGE_HEADER -
+					NON_SECURE_FLASH_OFFSET;
+
+	/* Set the CPU Boot wait control after reset */
+	*(u32_t *)(SSE_200_SYSTEM_CTRL_CPU_WAIT) = 0;
+}
+
 void app_task(void *arg1, void *arg2, void *arg3)
 {
 	ARG_UNUSED(arg1);
@@ -86,6 +117,8 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	}
 
 	resource_table_init((void **) &rsc_info.rsc_tab, &rsc_info.size);
+	wakeup_cpu1();
+	k_sleep(500);
 
 	struct remote_proc *rproc_ptr = NULL;
 	int status = remoteproc_resource_init(&rsc_info, proc,

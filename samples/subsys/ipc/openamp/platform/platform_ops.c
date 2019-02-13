@@ -28,8 +28,9 @@ static int enable_interrupt(struct proc_intr *intr)
 static void notify(struct hil_proc *proc, struct proc_intr *intr_info)
 {
 	u32_t dummy_data = 0x12345678; /* Some data must be provided */
+	u32_t current_core = *(volatile u32_t *)0x5001F000;
 
-	ipm_send(ipm_handle, 0, 0, &dummy_data, 1);//sizeof(dummy_data));
+	ipm_send(ipm_handle, 0, current_core ? 0 : 1, &dummy_data, 1);//sizeof(dummy_data));
 }
 
 static int boot_cpu(struct hil_proc *proc, unsigned int load_addr)
@@ -44,7 +45,6 @@ static void shutdown_cpu(struct hil_proc *proc)
 static int poll(struct hil_proc *proc, int nonblock)
 {
 	int status = k_sem_take(&data_sem, nonblock ? K_NO_WAIT : K_FOREVER);
-
 	if (status == 0) {
 		hil_notified(proc, 0xffffffff);
 	}
