@@ -19,11 +19,25 @@
 #include "platform.h"
 #include "resource_table.h"
 
+#include "audit_core.h"
+#include "audit_tests_common.h"
+#include "crypto_s_tests.h"
+#include "sst/secure/sst_s_tests.h"
+#include "sst/secure/test_framework.h"
+#include "tfm_sst_defs.h"
+
 enum cpu_id_t {
 	MHU_CPU0 = 0,
 	MHU_CPU1,
 	MHU_CPU_MAX,
 };
+
+#define CRYPTO_TEST_CASES	1
+
+/* Memory bounds to check */
+#define ROM_ADDR_LOCATION        0x10000000
+#define DEV_ADDR_LOCATION        0x50000000
+#define NON_EXIST_ADDR_LOCATION  0xFFFFFFFF
 
 /* (Secure System Control) Base Address */
 #define SSE_200_SYSTEM_CTRL_S_BASE	(0x50021000UL)
@@ -51,6 +65,49 @@ static volatile unsigned int received_data;
 
 static struct rsc_table_info rsc_info;
 static struct hil_proc *proc;
+
+extern int tfm_crypto_init(void);
+
+int32_t custom_get_caller_client_id()
+{
+//	printk("Custom function %s\n", __func__);
+	printk("C ID\n");
+	/* FixMe: Here should be a number to identify thread */
+	return k_current_get();
+}
+
+int32_t custom_memory_permission_check(
+            void *ptr, uint32_t len, int32_t access)
+{
+	struct tfm_sst_buf_t * sst_buf = (struct tfm_sst_buf_t *)ptr;
+	if (ptr == NULL || len == 0)
+		return TFM_ERROR_INVALID_PARAMETER;
+
+	if (sst_buf->data == ROM_ADDR_LOCATION 
+		|| sst_buf->data == DEV_ADDR_LOCATION
+		|| sst_buf->data == NON_EXIST_ADDR_LOCATION)
+		return TFM_ERROR_INVALID_PARAMETER;
+	//    if (cmse_check_address_range((void *)ptr, len, access) == NULL)
+	//        return TFM_ERROR_INVALID_PARAMETER;
+
+	return TFM_SUCCESS;
+}
+
+int32_t custom_validate_secure_caller()
+{
+	return TFM_SUCCESS;
+}
+
+void putchar(char *s)
+{
+
+}
+
+void exit(int return_code)
+{
+	printk("exit(%d)\n", return_code);
+	k_panic();
+}
 
 static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
 				int data_length, void *private,
@@ -168,7 +225,36 @@ _cleanup:
 
 void main(void)
 {
+	struct test_result_t ret;
+	tfm_audit_test_1001();
+
+#if CRYPTO_TEST_CASES
+	tfm_crypto_init();
+	tfm_crypto_test_5001();
+	tfm_crypto_test_6001();
+	tfm_crypto_test_6002();
+	tfm_crypto_test_6003();
+	tfm_crypto_test_6004();
+	tfm_crypto_test_6005();
+	tfm_crypto_test_6006();
+	tfm_crypto_test_6007();
+	tfm_crypto_test_6008();
+	tfm_crypto_test_6009();
+	tfm_crypto_test_6010();
+#endif
+#if 0
+	sst_crypto_init();
+	sst_am_prepare();
+	tfm_sst_test_2001(&ret);
+	if (ret.val == TEST_PASSED)
+		printk("tfm_sst_test_2001 Passed\n");
+	tfm_sst_test_2002(&ret);
+	if (ret.val == TEST_PASSED)
+		printk("tfm_sst_test_2002 Passed\n");
+#endif
+
 	printk("Starting application thread!\n");
+
 	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);

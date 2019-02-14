@@ -14,6 +14,31 @@ endif()
 
 enable_language(C ASM)
 
+zephyr_include_directories(inc)
+zephyr_include_directories(inc/interface)
+
+zephyr_library_link_libraries($ENV{ZEPHYR_BASE}/lib/tfm/tfm_audit.a)
+
+
+target_sources(app PRIVATE src/audit_s_interface_testsuite.c)
+
+zephyr_library_link_libraries($ENV{ZEPHYR_BASE}/lib/tfm/tfm_crypto.a)
+
+target_sources(app PRIVATE src/crypto_sec_interface_testsuite.c)
+target_sources(app PRIVATE src/crypto_ns_interface_testsuite.c)
+
+target_sources(app PRIVATE src/plat/dummy_crypto_keys.c)
+if(ADD_TFM_LIB)
+zephyr_library_link_libraries($ENV{ZEPHYR_BASE}/lib/tfm/tfm_storage.a)
+
+
+target_sources(app PRIVATE src/plat/dummy_nv_counters.c)
+
+#target_sources(app PRIVATE src/sst/secure/s_test_helpers.c)
+target_sources(app PRIVATE src/sst/secure/sst_sec_interface_testsuite.c)
+target_sources(app PRIVATE src/sst/secure/sst_reliability_testsuite.c)
+endif()
+
 # Location of external dependencies:
 set(PLATFORM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/platform")
 

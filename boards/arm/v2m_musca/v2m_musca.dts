@@ -33,12 +33,12 @@
 
 	flash0: flash@10200000 {
 		/* QSPI flash */
-		reg = <0x10200000 0x800000>;
+		reg = <0x10200000 0x30000>;
 	};
 
 	sram0: memory@30000000 {
 		compatible = "mmio-sram";
-		reg = <0x30000000 0x20000>;
+		reg = <0x30000000 0x10000>;
 	};
 
 	soc {
