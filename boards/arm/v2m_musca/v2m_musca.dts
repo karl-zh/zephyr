@@ -38,7 +38,7 @@
 
 	sram0: memory@30000000 {
 		compatible = "mmio-sram";
-		reg = <0x30000000 0x10000>;
+		reg = <0x30000000 0x14000>;
 	};
 
 	soc {

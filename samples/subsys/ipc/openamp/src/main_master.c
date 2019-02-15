@@ -68,15 +68,15 @@ static struct hil_proc *proc;
 
 extern int tfm_crypto_init(void);
 
-int32_t custom_get_caller_client_id()
+int32_t tfm_core_get_caller_client_id(int32_t *client_id)
 {
 //	printk("Custom function %s\n", __func__);
 	printk("C ID\n");
-	/* FixMe: Here should be a number to identify thread */
-	return k_current_get();
+	*((int32_t *)client_id) = k_current_get();
+	return TFM_SUCCESS;
 }
 
-int32_t custom_memory_permission_check(
+int32_t tfm_core_memory_permission_check(
             void *ptr, uint32_t len, int32_t access)
 {
 	struct tfm_sst_buf_t * sst_buf = (struct tfm_sst_buf_t *)ptr;
@@ -93,7 +93,7 @@ int32_t custom_memory_permission_check(
 	return TFM_SUCCESS;
 }
 
-int32_t custom_validate_secure_caller()
+int32_t tfm_core_validate_secure_caller()
 {
 	return TFM_SUCCESS;
 }
@@ -242,15 +242,101 @@ void main(void)
 	tfm_crypto_test_6009();
 	tfm_crypto_test_6010();
 #endif
-#if 0
+#if 1 // Too much time, skip for the time being
 	sst_crypto_init();
 	sst_am_prepare();
 	tfm_sst_test_2001(&ret);
 	if (ret.val == TEST_PASSED)
 		printk("tfm_sst_test_2001 Passed\n");
+	ret.val = TEST_FAILED;
 	tfm_sst_test_2002(&ret);
 	if (ret.val == TEST_PASSED)
 		printk("tfm_sst_test_2002 Passed\n");
+	ret.val = TEST_FAILED;
+
+		tfm_sst_test_2003(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2003 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2004(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2004 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2005(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2005 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2006(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2006 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2007(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2007 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2008(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2008 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2009(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2009 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2010(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2010 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2011(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2011 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2012(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2012 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2013(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2013 Passed\n");
+		ret.val = TEST_FAILED;
+	
+		tfm_sst_test_2014(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2014 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2015(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2015 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2016(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2016 Passed\n");
+#endif
+#if 1
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2017(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2017 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2018(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2018 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2019(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2019 Passed\n");
+		ret.val = TEST_FAILED;
+		tfm_sst_test_2020(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_2020 Passed\n");
+#endif
+
+#if 0 // Too slow to test these two
+		tfm_sst_test_3001(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_3001 Passed\n");
+		tfm_sst_test_3002(&ret);
+		if (ret.val == TEST_PASSED)
+			printk("tfm_sst_test_3002 Passed\n");
 #endif
 
 	printk("Starting application thread!\n");

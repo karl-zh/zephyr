@@ -36,9 +36,9 @@
 		reg = <0x00230400 0x1ffc00>;
 	};
 
-	sram0: memory@20010000 {
+	sram0: memory@20014000 {
 		compatible = "mmio-sram";
-		reg = <0x20010000 0x8000>;
+		reg = <0x20014000 0x4000>;
 	};
 
 	soc {

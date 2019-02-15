@@ -28,7 +28,7 @@ target_sources(app PRIVATE src/crypto_sec_interface_testsuite.c)
 target_sources(app PRIVATE src/crypto_ns_interface_testsuite.c)
 
 target_sources(app PRIVATE src/plat/dummy_crypto_keys.c)
-if(ADD_TFM_LIB)
+#if(ADD_TFM_LIB)
 zephyr_library_link_libraries($ENV{ZEPHYR_BASE}/lib/tfm/tfm_storage.a)
 
 
@@ -37,7 +37,7 @@ target_sources(app PRIVATE src/plat/dummy_nv_counters.c)
 #target_sources(app PRIVATE src/sst/secure/s_test_helpers.c)
 target_sources(app PRIVATE src/sst/secure/sst_sec_interface_testsuite.c)
 target_sources(app PRIVATE src/sst/secure/sst_reliability_testsuite.c)
-endif()
+#endif()
 
 # Location of external dependencies:
 set(PLATFORM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/platform")
