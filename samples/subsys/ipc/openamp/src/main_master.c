@@ -97,6 +97,26 @@ static void wakeup_cpu1(void)
 	/* Set the CPU Boot wait control after reset */
 	*(u32_t *)(SSE_200_SYSTEM_CTRL_CPU_WAIT) = 0;
 }
+int serial_write(int fd, char *buf, int size)
+{
+	return 0;
+}
+
+int serial_read(int fd, char *buf, int size)
+{
+	return 0;
+}
+
+int serial_open(const char *port)
+{
+	printk("serial open %s", port);
+	return 0;
+}
+
+int serial_close(int fd)
+{
+	return 0;
+}
 
 void app_task(void *arg1, void *arg2, void *arg3)
 {
@@ -136,7 +156,7 @@ void app_task(void *arg1, void *arg2, void *arg3)
 		hil_poll(proc, 0);
 
 
-	erpc_transport_serial_init("z", 115200);
+	erpc_transport_serial_init("zass", 115200);
 
 	unsigned int message = 0U;
 
