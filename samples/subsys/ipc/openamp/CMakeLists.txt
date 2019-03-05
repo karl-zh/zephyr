@@ -14,6 +14,8 @@ endif()
 
 enable_language(C ASM)
 
+zephyr_library_link_libraries($ENV{ZEPHYR_BASE}/lib/erpc/liberpc.a)
+
 # Location of external dependencies:
 set(PLATFORM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/platform")
 

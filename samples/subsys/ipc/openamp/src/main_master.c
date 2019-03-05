@@ -135,6 +135,9 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	while (k_sem_take(&channel_created, K_NO_WAIT) != 0)
 		hil_poll(proc, 0);
 
+
+	erpc_transport_serial_init("z", 115200);
+
 	unsigned int message = 0U;
 
 	status = send_message(message);
