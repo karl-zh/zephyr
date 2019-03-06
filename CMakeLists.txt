@@ -182,6 +182,7 @@ zephyr_ld_options(
   -nostdlib
   -static
   -no-pie
+  -lstdc++
 )
 endif()
 

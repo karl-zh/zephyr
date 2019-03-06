@@ -18,6 +18,7 @@
 
 #include "platform.h"
 #include "resource_table.h"
+#include "erpc_matrix_multiply.h"
 
 enum cpu_id_t {
 	MHU_CPU0 = 0,
@@ -85,6 +86,45 @@ static int send_message(unsigned int message)
 	return rpmsg_send(rp_channel, &message, sizeof(message));
 }
 
+/*!
+ * @brief erpcMatrixMultiply function implementation.
+ *
+ * This is the implementation of the erpcMatrixMultiply function called by the primary core.
+ *
+ * @param matrix1 First matrix
+ * @param matrix2 Second matrix
+ * @param result_matrix Result matrix
+ */
+void erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_matrix)
+{
+    int32_t i, j, k;
+
+    printk("Calculating the matrix multiplication...\r\n");
+
+    /* Clear the result matrix */
+    for (i = 0; i < matrix_size; ++i)
+    {
+        for (j = 0; j < matrix_size; ++j)
+        {
+            result_matrix[i][j] = 0;
+        }
+    }
+
+    /* Multiply two matrices */
+    for (i = 0; i < matrix_size; ++i)
+    {
+        for (j = 0; j < matrix_size; ++j)
+        {
+            for (k = 0; k < matrix_size; ++k)
+            {
+                result_matrix[i][j] += matrix1[i][k] * matrix2[k][j];
+            }
+        }
+    }
+
+    printk("Done!\r\n");
+}
+
 static void wakeup_cpu1(void)
 {
 	/* Set the Initial Secure Reset Vector Register for CPU 1 */
@@ -97,13 +137,21 @@ static void wakeup_cpu1(void)
 	/* Set the CPU Boot wait control after reset */
 	*(u32_t *)(SSE_200_SYSTEM_CTRL_CPU_WAIT) = 0;
 }
+
+void __assert_func (const char *file, int line, const char *func, const char *e)
+{
+//	printk("%s,%s,%s\n")
+}
+
 int serial_write(int fd, char *buf, int size)
 {
+	printk("serial write %d", size);
 	return 0;
 }
 
 int serial_read(int fd, char *buf, int size)
 {
+	printk("serial read %d", size);
 	return 0;
 }
 
@@ -155,9 +203,6 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	while (k_sem_take(&channel_created, K_NO_WAIT) != 0)
 		hil_poll(proc, 0);
 
-
-	erpc_transport_serial_init("zass", 115200);
-
 	unsigned int message = 0U;
 
 	status = send_message(message);
@@ -195,4 +240,21 @@ void main(void)
 	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
+//	erpc_transport_t
+
+	 void * transport = erpc_transport_serial_init("zass", 115200);
+//	erpc_mbf_t
+	 void * message_buffer_factory = erpc_mbf_static_init();
+
+	erpc_server_init(transport ,message_buffer_factory);
+
+	/* adding the service to the server */
+	erpc_add_service_to_server(create_MatrixMultiplyService_service());
+
+	printk("MatrixMultiply service added\r\n");
+
+	while (1) {
+		/* process message */
+		erpc_server_poll();
+	}
 }

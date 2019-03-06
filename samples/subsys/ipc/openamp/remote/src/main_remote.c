@@ -67,6 +67,34 @@ static int send_message(unsigned int message)
 	return rpmsg_send(rp_channel, &message, sizeof(message));
 }
 
+void __assert_func (const char *file, int line, const char *func, const char *e)
+{
+//	printk("%s,%s,%s\n")
+}
+
+int serial_write(int fd, char *buf, int size)
+{
+	printk("serial write %d", size);
+	return 0;
+}
+
+int serial_read(int fd, char *buf, int size)
+{
+	printk("serial read %d", size);
+	return 0;
+}
+
+int serial_open(const char *port)
+{
+	printk("serial open %s", port);
+	return 0;
+}
+
+int serial_close(int fd)
+{
+	return 0;
+}
+
 void app_task(void *arg1, void *arg2, void *arg3)
 {
 	ARG_UNUSED(arg1);
@@ -119,4 +147,11 @@ void main(void)
 	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
+
+	 //  erpc_transport_t
+	 void * transport = erpc_transport_serial_init("zass r", 115200);
+//	erpc_mbf_t
+	 void * message_buffer_factory = erpc_mbf_static_init();
+
+	erpc_client_init(transport ,message_buffer_factory);
 }
