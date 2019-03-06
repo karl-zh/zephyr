@@ -21,6 +21,9 @@
 
 #define RX_BUFF_SIZE            256
 
+#define MSG_SIZE                4
+#define MSGQ_LEN                256
+
 struct rcv_buff {
     unsigned char rcv[RX_BUFF_SIZE];
     unsigned char len;

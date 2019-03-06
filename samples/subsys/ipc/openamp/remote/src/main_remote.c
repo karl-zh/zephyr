@@ -35,7 +35,33 @@ static struct hil_proc *proc;
 static struct rpmsg_channel *rp_channel;
 static struct rpmsg_endpoint *rp_endpoint;
 
-static struct rcv_buff rpmsg_recv = {0};
+#define NO_RCV_MSGQ 0
+
+#if RCV_MSGQ
+struct k_msgq rcv_msgq;
+static char __aligned(4) tbuffer[MSG_SIZE * MSGQ_LEN];
+
+static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
+				int data_length, void *private,
+				unsigned long src)
+{
+	int ret, rx_data;
+	printk("Rrcv %d.\n", data_length);
+	for (int i  = 0; i < data_length; i++) {
+		rx_data = *((char *)data + i);
+//		printk("%x ", rx_data);
+		ret = k_msgq_put(&rcv_msgq, &rx_data, K_NO_WAIT);
+		if (ret != 0)
+			printk(" %s error.\n", __func__);
+//		zassert_equal(ret, 0, NULL);
+	}
+
+//	received_data = *((unsigned int *) data);
+	k_sem_give(&message_received);
+	printk("RrcvD %d.\n", data_length);
+}
+#else
+static struct rcv_buff rpmsg_recv = {{0}, 0};
 
 static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
 				int data_length, void *private,
@@ -53,6 +79,7 @@ static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
 	k_sem_give(&message_received);
 }
 
+#endif
 static void rpmsg_channel_created(struct rpmsg_channel *channel)
 {
 	rp_channel = channel;
@@ -85,26 +112,45 @@ void __assert_func (const char *file, int line, const char *func, const char *e)
 
 int serial_write(int fd, char *buf, int size)
 {
-	printk("Rwrite %d", size);
+	printk("Rwrite %x, %d\n", buf, size);
 //	return 0;
 	return rpmsg_send(rp_channel, buf, size);
 }
 
+#if RCV_MSGQ
 int serial_read(int fd, char *buf, int size)
 {
 //	printk("serial read %d", size);
 //	return 0;
+	int ret, rx_data;
 	while (k_sem_take(&message_received, K_NO_WAIT) != 0)
 		hil_poll(proc, 0);
 
-	printk("Rread %d", size);
+
+	for (int i = 0; i < size; i++) {
+		ret = k_msgq_get(&rcv_msgq, &rx_data, K_NO_WAIT);
+		buf[i] = (rx_data & 0xFF);
+		printk("%d ", buf[i]);
+//		zassert_equal(ret, 0, NULL);
+	}
+
+	printk("RreadD %d\n", size);
+	return size;
+}
+#else
+int serial_read(int fd, char *buf, int size)
+{
+	while (k_sem_take(&message_received, K_NO_WAIT) != 0)
+		hil_poll(proc, 0);
+
+	printk("Rread %x, %d\n",buf, size);
 	memcpy(buf, rpmsg_recv.rcv, size);
 	return size;
 }
-
+#endif
 int serial_open(const char *port)
 {
-	printk("serial open %s", port);
+	printk("serial open %s\n", port);
 	return 0;
 }
 
@@ -163,6 +209,8 @@ _cleanup:
 		remoteproc_resource_deinit(rproc_ptr);
 	}
 }
+typedef struct ErpcMessageBufferFactory *erpc_mbf_t;
+typedef struct ErpcTransport *erpc_transport_t;
 
 void main(void)
 {
@@ -170,10 +218,14 @@ void main(void)
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
 
+#if RCV_MSGQ
+	k_msgq_init(&rcv_msgq, tbuffer, MSG_SIZE, MSGQ_LEN);
+#endif
+
 	 //  erpc_transport_t
-	 void * transport = erpc_transport_serial_init("zssR", 115200);
+	 erpc_transport_t transport = erpc_transport_serial_init("zssR", 115200);
 //	erpc_mbf_t
-	 void * message_buffer_factory = erpc_mbf_static_init();
+	 erpc_mbf_t message_buffer_factory = erpc_mbf_static_init();
 
 	erpc_client_init(transport ,message_buffer_factory);
 
@@ -192,5 +244,7 @@ void main(void)
     }
 
 	erpcMatrixMultiply(matrix1, matrix2, matrixR);
-	printk("R %d 0x %x %x %x\n", matrixR[2][2], matrix1, matrix2, matrixR);
+	printk("R %d\n", matrixR[2][2]);
+	erpcMatrixMultiply(matrix1, matrix2, matrixR);
+	printk("RB %d\n", matrixR[2][2]);
 }

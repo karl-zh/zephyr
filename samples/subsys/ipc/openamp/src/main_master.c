@@ -109,6 +109,9 @@ void erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_matrix)
 {
     int32_t i, j, k;
     const int32_t matrix_size = 5;
+//	matrix1 = (char*)matrix1 - 0x390 + 0x10000;
+//	matrix2 = (char*)matrix2 - 0x390 + 0x10000;
+//	result_matrix = (char*)result_matrix - 0x390 + 0x10000;
 
     printk("Calculating the matrix multiplication... %x %x %x\r\n", matrix1, matrix2, result_matrix);
 
@@ -156,7 +159,7 @@ void __assert_func (const char *file, int line, const char *func, const char *e)
 
 int serial_write(int fd, char *buf, int size)
 {
-	printk("Mwrite %d", size);
+	printk("Mwrite %x, %d\n", buf, size);
 //	return 0;
 	return rpmsg_send(rp_channel, buf, size);
 }
@@ -166,14 +169,14 @@ int serial_read(int fd, char *buf, int size)
 	while (k_sem_take(&message_received, K_NO_WAIT) != 0)
 		hil_poll(proc, 0);
 
-	printk("Mread %d", size);
+	printk("Mread %x, %d\n",buf, size);
 	memcpy(buf, rpmsg_recv.rcv, size);
 	return size;
 }
 
 int serial_open(const char *port)
 {
-	printk("serial open %s", port);
+	printk("serial open %s\n", port);
 	return 0;
 }
 
