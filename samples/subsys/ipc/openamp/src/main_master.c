@@ -53,11 +53,21 @@ static volatile unsigned int received_data;
 static struct rsc_table_info rsc_info;
 static struct hil_proc *proc;
 
+static struct rcv_buff rpmsg_recv = {0};
+
 static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
 				int data_length, void *private,
 				unsigned long src)
 {
-	received_data = *((unsigned int *) data);
+	if (data_length < RX_BUFF_SIZE) {
+		memset(rpmsg_recv.rcv, 0x00, RX_BUFF_SIZE);
+		memcpy(rpmsg_recv.rcv, (unsigned char *)data, data_length);
+		printk("Mrcv %d.\n", data_length);
+	} else {
+		printk("M %s received %d bytes.\n", __func__, data_length);
+	}
+
+//	received_data = *((unsigned int *) data);
 	k_sem_give(&message_received);
 }
 
@@ -83,7 +93,7 @@ static unsigned int receive_message(void)
 
 static int send_message(unsigned int message)
 {
-	return rpmsg_send(rp_channel, &message, sizeof(message));
+//	return rpmsg_send(rp_channel, &message, sizeof(message));
 }
 
 /*!
@@ -98,8 +108,9 @@ static int send_message(unsigned int message)
 void erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_matrix)
 {
     int32_t i, j, k;
+    const int32_t matrix_size = 5;
 
-    printk("Calculating the matrix multiplication...\r\n");
+    printk("Calculating the matrix multiplication... %x %x %x\r\n", matrix1, matrix2, result_matrix);
 
     /* Clear the result matrix */
     for (i = 0; i < matrix_size; ++i)
@@ -122,7 +133,7 @@ void erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_matrix)
         }
     }
 
-    printk("Done!\r\n");
+    printk("Done! %d\r\n", result_matrix[1][1]);
 }
 
 static void wakeup_cpu1(void)
@@ -145,14 +156,19 @@ void __assert_func (const char *file, int line, const char *func, const char *e)
 
 int serial_write(int fd, char *buf, int size)
 {
-	printk("serial write %d", size);
-	return 0;
+	printk("Mwrite %d", size);
+//	return 0;
+	return rpmsg_send(rp_channel, buf, size);
 }
 
 int serial_read(int fd, char *buf, int size)
 {
-	printk("serial read %d", size);
-	return 0;
+	while (k_sem_take(&message_received, K_NO_WAIT) != 0)
+		hil_poll(proc, 0);
+
+	printk("Mread %d", size);
+	memcpy(buf, rpmsg_recv.rcv, size);
+	return size;
 }
 
 int serial_open(const char *port)
@@ -203,6 +219,10 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	while (k_sem_take(&channel_created, K_NO_WAIT) != 0)
 		hil_poll(proc, 0);
 
+	printk("OpenAMP created.\n");
+	while (1) {
+		k_sleep(500);
+	}
 	unsigned int message = 0U;
 
 	status = send_message(message);

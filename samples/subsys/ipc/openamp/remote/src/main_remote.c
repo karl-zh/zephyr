@@ -18,6 +18,7 @@
 
 #include "platform.h"
 #include "resource_table.h"
+#include "erpc_matrix_multiply.h"
 
 #define APP_TASK_STACK_SIZE (512)
 K_THREAD_STACK_DEFINE(thread_stack, APP_TASK_STACK_SIZE);
@@ -34,11 +35,21 @@ static struct hil_proc *proc;
 static struct rpmsg_channel *rp_channel;
 static struct rpmsg_endpoint *rp_endpoint;
 
+static struct rcv_buff rpmsg_recv = {0};
+
 static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
 				int data_length, void *private,
 				unsigned long src)
 {
-	received_data = *((unsigned int *) data);
+	if (data_length < RX_BUFF_SIZE) {
+		memset(rpmsg_recv.rcv, 0x00, RX_BUFF_SIZE);
+		memcpy(rpmsg_recv.rcv, (unsigned char *)data, data_length);
+		printk("Rrcv %d.\n", data_length);
+	} else {
+		printk("R %s received %d bytes.\n", __func__, data_length);
+	}
+
+//	received_data = *((unsigned int *) data);
 	k_sem_give(&message_received);
 }
 
@@ -74,14 +85,21 @@ void __assert_func (const char *file, int line, const char *func, const char *e)
 
 int serial_write(int fd, char *buf, int size)
 {
-	printk("serial write %d", size);
-	return 0;
+	printk("Rwrite %d", size);
+//	return 0;
+	return rpmsg_send(rp_channel, buf, size);
 }
 
 int serial_read(int fd, char *buf, int size)
 {
-	printk("serial read %d", size);
-	return 0;
+//	printk("serial read %d", size);
+//	return 0;
+	while (k_sem_take(&message_received, K_NO_WAIT) != 0)
+		hil_poll(proc, 0);
+
+	printk("Rread %d", size);
+	memcpy(buf, rpmsg_recv.rcv, size);
+	return size;
 }
 
 int serial_open(const char *port)
@@ -125,6 +143,10 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	while (k_sem_take(&channel_created, K_NO_WAIT) != 0)
 		hil_poll(proc, 0);
 
+	while (1) {
+		k_sleep(500);
+	}
+
 	unsigned int message = 0U;
 
 	while (message <= 100) {
@@ -149,9 +171,26 @@ void main(void)
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
 
 	 //  erpc_transport_t
-	 void * transport = erpc_transport_serial_init("zass r", 115200);
+	 void * transport = erpc_transport_serial_init("zssR", 115200);
 //	erpc_mbf_t
 	 void * message_buffer_factory = erpc_mbf_static_init();
 
 	erpc_client_init(transport ,message_buffer_factory);
+
+	Matrix matrix1 = {3};
+	Matrix matrix2 = {5};
+	Matrix matrixR = {0};
+	int matrix_size = 5, i, j;
+
+    for (i = 0; i < matrix_size; ++i)
+    {
+        for (j = 0; j < matrix_size; ++j)
+        {
+            matrix1[i][j] = 3;
+            matrix2[i][j] = 5;
+        }
+    }
+
+	erpcMatrixMultiply(matrix1, matrix2, matrixR);
+	printk("R %d 0x %x %x %x\n", matrixR[2][2], matrix1, matrix2, matrixR);
 }

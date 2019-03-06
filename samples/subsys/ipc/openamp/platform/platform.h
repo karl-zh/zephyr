@@ -19,6 +19,13 @@
 #define VRING_ALIGNMENT         4
 #define VRING_SIZE              16
 
+#define RX_BUFF_SIZE            256
+
+struct rcv_buff {
+    unsigned char rcv[RX_BUFF_SIZE];
+    unsigned char len;
+};
+
 struct hil_proc *platform_init(int role);
 
 #endif
