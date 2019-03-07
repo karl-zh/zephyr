@@ -26,7 +26,8 @@
 
 struct rcv_buff {
     unsigned char rcv[RX_BUFF_SIZE];
-    unsigned char len;
+    unsigned int len;
+    unsigned int start;
 };
 
 struct hil_proc *platform_init(int role);

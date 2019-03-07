@@ -53,6 +53,31 @@ static volatile unsigned int received_data;
 static struct rsc_table_info rsc_info;
 static struct hil_proc *proc;
 
+#define RCV_MSGQ 1
+
+#if RCV_MSGQ
+struct k_msgq rcv_msgq;
+static char __aligned(4) tbuffer[MSG_SIZE * MSGQ_LEN];
+
+static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
+				int data_length, void *private,
+				unsigned long src)
+{
+	int ret, rx_data;
+	printk("Rrcv %d.\n", data_length);
+	for (int i  = 0; i < data_length; i++) {
+		rx_data = *((char *)data + i);
+//		printk("%x ", rx_data);
+		ret = k_msgq_put(&rcv_msgq, &rx_data, K_NO_WAIT);
+		if (ret != 0)
+			printk(" %s error.\n", __func__);
+//		zassert_equal(ret, 0, NULL);
+	}
+
+//	received_data = *((unsigned int *) data);
+	k_sem_give(&message_received);
+}
+#else
 static struct rcv_buff rpmsg_recv = {0};
 
 static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
@@ -70,6 +95,7 @@ static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
 //	received_data = *((unsigned int *) data);
 	k_sem_give(&message_received);
 }
+#endif
 
 static void rpmsg_channel_created(struct rpmsg_channel *channel)
 {
@@ -109,11 +135,8 @@ void erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_matrix)
 {
     int32_t i, j, k;
     const int32_t matrix_size = 5;
-//	matrix1 = (char*)matrix1 - 0x390 + 0x10000;
-//	matrix2 = (char*)matrix2 - 0x390 + 0x10000;
-//	result_matrix = (char*)result_matrix - 0x390 + 0x10000;
 
-    printk("Calculating the matrix multiplication... %x %x %x\r\n", matrix1, matrix2, result_matrix);
+    printk("Calculating the matrix multiplication...\r\n");
 
     /* Clear the result matrix */
     for (i = 0; i < matrix_size; ++i)
@@ -136,7 +159,7 @@ void erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_matrix)
         }
     }
 
-    printk("Done! %d\r\n", result_matrix[1][1]);
+    printk("Done!\r\n");
 }
 
 static void wakeup_cpu1(void)
@@ -164,6 +187,24 @@ int serial_write(int fd, char *buf, int size)
 	return rpmsg_send(rp_channel, buf, size);
 }
 
+#if RCV_MSGQ
+int serial_read(int fd, char *buf, int size)
+{
+	int ret, rx_data;
+	if (size > k_msgq_num_used_get(&rcv_msgq)) {
+		while (k_sem_take(&message_received, K_NO_WAIT) != 0)
+			hil_poll(proc, 0);
+	}
+
+	for (int i = 0; i < size; i++) {
+		ret = k_msgq_get(&rcv_msgq, &rx_data, K_NO_WAIT);
+		buf[i] = (rx_data & 0xFF);
+//		printk("%d ", buf[i]);
+//		zassert_equal(ret, 0, NULL);
+	}
+	return size;
+}
+#else
 int serial_read(int fd, char *buf, int size)
 {
 	while (k_sem_take(&message_received, K_NO_WAIT) != 0)
@@ -173,6 +214,7 @@ int serial_read(int fd, char *buf, int size)
 	memcpy(buf, rpmsg_recv.rcv, size);
 	return size;
 }
+#endif
 
 int serial_open(const char *port)
 {
@@ -260,6 +302,11 @@ _cleanup:
 void main(void)
 {
 	printk("Starting application thread!\n");
+
+#if RCV_MSGQ
+		k_msgq_init(&rcv_msgq, tbuffer, MSG_SIZE, MSGQ_LEN);
+#endif
+
 	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);

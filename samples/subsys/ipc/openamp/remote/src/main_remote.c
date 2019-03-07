@@ -35,7 +35,7 @@ static struct hil_proc *proc;
 static struct rpmsg_channel *rp_channel;
 static struct rpmsg_endpoint *rp_endpoint;
 
-#define NO_RCV_MSGQ 0
+#define RCV_MSGQ 1
 
 #if RCV_MSGQ
 struct k_msgq rcv_msgq;
@@ -58,18 +58,18 @@ static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
 
 //	received_data = *((unsigned int *) data);
 	k_sem_give(&message_received);
-	printk("RrcvD %d.\n", data_length);
 }
 #else
-static struct rcv_buff rpmsg_recv = {{0}, 0};
+static struct rcv_buff rpmsg_recv = {{0}, 0, 0};
 
 static void rpmsg_recv_callback(struct rpmsg_channel *channel, void *data,
 				int data_length, void *private,
 				unsigned long src)
 {
-	if (data_length < RX_BUFF_SIZE) {
-		memset(rpmsg_recv.rcv, 0x00, RX_BUFF_SIZE);
-		memcpy(rpmsg_recv.rcv, (unsigned char *)data, data_length);
+	if (data_length < (RX_BUFF_SIZE - rpmsg_recv.start)) {
+//		memset(rpmsg_recv.rcv, 0x00, RX_BUFF_SIZE);
+		memcpy(rpmsg_recv.rcv + rpmsg_recv.len, (unsigned char *)data, data_length);
+		rpmsg_recv.len += data_length;
 		printk("Rrcv %d.\n", data_length);
 	} else {
 		printk("R %s received %d bytes.\n", __func__, data_length);
@@ -107,7 +107,12 @@ static int send_message(unsigned int message)
 
 void __assert_func (const char *file, int line, const char *func, const char *e)
 {
-//	printk("%s,%s,%s\n")
+	printk("%s,%s,%s\n");
+}
+
+void print_log(const char *fmt)
+{
+	printk(fmt);
 }
 
 int serial_write(int fd, char *buf, int size)
@@ -120,31 +125,32 @@ int serial_write(int fd, char *buf, int size)
 #if RCV_MSGQ
 int serial_read(int fd, char *buf, int size)
 {
-//	printk("serial read %d", size);
-//	return 0;
 	int ret, rx_data;
-	while (k_sem_take(&message_received, K_NO_WAIT) != 0)
-		hil_poll(proc, 0);
-
+	if (size > k_msgq_num_used_get(&rcv_msgq)) {
+		while (k_sem_take(&message_received, K_NO_WAIT) != 0)
+			hil_poll(proc, 0);
+	}
 
 	for (int i = 0; i < size; i++) {
 		ret = k_msgq_get(&rcv_msgq, &rx_data, K_NO_WAIT);
 		buf[i] = (rx_data & 0xFF);
-		printk("%d ", buf[i]);
+//		printk("%d ", buf[i]);
 //		zassert_equal(ret, 0, NULL);
 	}
-
-	printk("RreadD %d\n", size);
 	return size;
 }
 #else
 int serial_read(int fd, char *buf, int size)
 {
-	while (k_sem_take(&message_received, K_NO_WAIT) != 0)
-		hil_poll(proc, 0);
-
 	printk("Rread %x, %d\n",buf, size);
-	memcpy(buf, rpmsg_recv.rcv, size);
+	if (size > rpmsg_recv.len) {
+		while (k_sem_take(&message_received, K_NO_WAIT) != 0)
+			hil_poll(proc, 0);
+	}
+
+	memcpy(buf, rpmsg_recv.rcv + rpmsg_recv.start, size);
+	rpmsg_recv.start += size;
+	rpmsg_recv.len -= size;
 	return size;
 }
 #endif
