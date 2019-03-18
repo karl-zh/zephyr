@@ -18,7 +18,7 @@
 
 #include "platform.h"
 #include "resource_table.h"
-#include "erpc_matrix_multiply.h"
+#include "erpc_psa_api.h"
 
 #define APP_TASK_STACK_SIZE (512)
 K_THREAD_STACK_DEFINE(thread_stack, APP_TASK_STACK_SIZE);
@@ -251,6 +251,10 @@ void main(void)
 
 	erpcMatrixMultiply(matrix1, matrix2, matrixR);
 	printk("R %d\n", matrixR[2][2]);
-	erpcMatrixMultiply(matrix1, matrix2, matrixR);
-	printk("RB %d\n", matrixR[2][2]);
+
+	printk("PFV: %d\n", psa_framework_version());
+	psa_version(matrix_size - 1);
+	psa_connect(matrix_size - 2, matrix_size - 3);
+	psa_call(1, matrix_size + 1, matrix_size + 2, matrix_size + 3, matrix_size + 4);
+	psa_close(matrix_size);
 }

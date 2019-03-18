@@ -18,7 +18,7 @@
 
 #include "platform.h"
 #include "resource_table.h"
-#include "erpc_matrix_multiply.h"
+#include "erpc_psa_api.h"
 
 enum cpu_id_t {
 	MHU_CPU0 = 0,
@@ -160,6 +160,37 @@ void erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_matrix)
     }
 
     printk("Done!\r\n");
+}
+
+#define PSA_FRAMEWORK_VERSION  (0x0100)
+
+uint32_t psa_framework_version(void)
+{
+    return PSA_FRAMEWORK_VERSION;
+}
+
+uint32_t psa_version(uint32_t sid)
+{
+    printk("func %s. %d\n", __func__, sid);
+    return 0;
+}
+
+int32_t psa_connect(uint32_t sid, uint32_t minor_version)
+{
+    printk("func %s. %d\n", __func__, minor_version);
+    return 0;
+}
+
+int32_t psa_call(int32_t handle, int32_t in_vec, uint32_t in_len, int32_t out_vec, uint32_t out_len)
+{
+    printk("func %s. %d\n", __func__, handle);
+    return 0;
+}
+
+void psa_close(int32_t handle)
+{
+    printk("func %s. %d\n", __func__, handle);
+    return;
 }
 
 static void wakeup_cpu1(void)
@@ -320,6 +351,11 @@ void main(void)
 
 	/* adding the service to the server */
 	erpc_add_service_to_server(create_MatrixMultiplyService_service());
+	erpc_add_service_to_server(create_PsaFrameworkVersionService_service());
+	erpc_add_service_to_server(create_PsaVersionService_service());
+	erpc_add_service_to_server(create_PsaConnectService_service());
+	erpc_add_service_to_server(create_PsaCallService_service());
+	erpc_add_service_to_server(create_PsaCloseService_service());
 
 	printk("MatrixMultiply service added\r\n");
 
