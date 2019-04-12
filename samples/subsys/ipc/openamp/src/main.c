@@ -62,6 +62,37 @@ static struct rpmsg_virtio_device rvdev;
 static struct metal_io_region *io;
 static struct virtqueue *vq[2];
 
+enum cpu_id_t {
+	MHU_CPU0 = 0,
+	MHU_CPU1,
+	MHU_CPU_MAX,
+};
+
+/* (Secure System Control) Base Address */
+#define SSE_200_SYSTEM_CTRL_S_BASE		(0x50021000UL)
+#define SSE_200_SYSTEM_CTRL_INITSVTOR1	(SSE_200_SYSTEM_CTRL_S_BASE + 0x114)
+#define SSE_200_SYSTEM_CTRL_CPU_WAIT	(SSE_200_SYSTEM_CTRL_S_BASE + 0x118)
+#define SSE_200_CPU_ID_UNIT_BASE		(0x5001F000UL)
+
+#define SHARED_MEM_BASE					(CONFIG_SRAM_BASE_ADDRESS + \
+										(CONFIG_SRAM_SIZE * 1024) - 8)
+#define NON_SECURE_FLASH_ADDRESS		(192 * 1024)
+#define NON_SECURE_IMAGE_HEADER			(0x400)
+#define NON_SECURE_FLASH_OFFSET			(0x10000000)
+
+static void wakeup_cpu1(void)
+{
+	/* Set the Initial Secure Reset Vector Register for CPU 1 */
+	*(u32_t *)(SSE_200_SYSTEM_CTRL_INITSVTOR1) =
+				CONFIG_FLASH_BASE_ADDRESS +
+				NON_SECURE_FLASH_ADDRESS +
+				NON_SECURE_IMAGE_HEADER -
+				NON_SECURE_FLASH_OFFSET;
+
+	/* Set the CPU Boot wait control after reset */
+	*(u32_t *)(SSE_200_SYSTEM_CTRL_CPU_WAIT) = 0;
+}
+
 static unsigned char virtio_get_status(struct virtio_device *vdev)
 {
 	return VIRTIO_CONFIG_STATUS_DRIVER_OK;
@@ -84,9 +115,11 @@ static void virtio_set_features(struct virtio_device *vdev,
 
 static void virtio_notify(struct virtqueue *vq)
 {
-	u32_t dummy_data = 0x55005500; /* Some data must be provided */
+	u32_t dummy_data = 0x00110011; /* Some data must be provided */
+	u32_t current_core = *(volatile u32_t *)0x5001F000;
 
-	ipm_send(ipm_handle, 0, 0, &dummy_data, sizeof(dummy_data));
+//	ipm_send(ipm_handle, 0, 0, &dummy_data, sizeof(dummy_data));
+	ipm_send(ipm_handle, 0, current_core ? 0 : 1, &dummy_data, 1);
 }
 
 struct virtio_dispatch dispatch = {
@@ -191,8 +224,13 @@ void app_task(void *arg1, void *arg2, void *arg3)
 		return;
 	}
 
+	wakeup_cpu1();
+	k_sleep(500);
+
 	/* setup IPM */
-	ipm_handle = device_get_binding("MAILBOX_0");
+//	ipm_handle = device_get_binding("MAILBOX_0");
+	ipm_handle = device_get_binding("MHU_0");
+
 	if (ipm_handle == NULL) {
 		printk("device_get_binding failed to find device\n");
 		return;
