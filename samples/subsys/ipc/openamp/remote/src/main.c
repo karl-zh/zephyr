@@ -18,6 +18,7 @@
 #include <metal/device.h>
 
 #include "common.h"
+#include "erpc_matrix_multiply.h"
 
 #define APP_TASK_STACK_SIZE (1024)
 K_THREAD_STACK_DEFINE(thread_stack, APP_TASK_STACK_SIZE);
@@ -89,6 +90,20 @@ struct virtio_dispatch dispatch = {
 static K_SEM_DEFINE(data_sem, 0, 1);
 static K_SEM_DEFINE(data_rx_sem, 0, 1);
 
+#define RX_BUFF_SIZE            256
+
+#define MSG_SIZE                4
+#define MSGQ_LEN                256
+
+struct rcv_buff {
+    unsigned char rcv[RX_BUFF_SIZE];
+    unsigned int len;
+    unsigned int start;
+};
+
+struct k_msgq rcv_msgq;
+static char __aligned(4) tbuffer[MSG_SIZE * MSGQ_LEN];
+
 static void platform_ipm_callback(void *context, u32_t id, volatile void *data)
 {
 	k_sem_give(&data_sem);
@@ -97,7 +112,18 @@ static void platform_ipm_callback(void *context, u32_t id, volatile void *data)
 int endpoint_cb(struct rpmsg_endpoint *ept, void *data,
 		size_t len, u32_t src, void *priv)
 {
-	received_data = *((unsigned int *) data);
+
+	int ret, rx_data;
+	printk("Rrcv %d.\n", len);
+	for (int i  = 0; i < len; i++) {
+		rx_data = *((char *)data + i);
+		//             printk("%x ", rx_data);
+		ret = k_msgq_put(&rcv_msgq, &rx_data, K_NO_WAIT);
+		if (ret != 0)
+			printk(" %s error.\n", __func__);
+		//             zassert_equal(ret, 0, NULL);
+	}
+//received_data = *((unsigned int *) data);
 
 	k_sem_give(&data_rx_sem);
 
@@ -130,6 +156,57 @@ static unsigned int receive_message(void)
 static int send_message(unsigned int message)
 {
 	return rpmsg_send(ep, &message, sizeof(message));
+}
+
+void __assert_func (const char *file, int line, const char *func, const char *e)
+{
+       printk("%s,%s,%s\n");
+}
+
+void print_log(const char *fmt)
+{
+       printk(fmt);
+}
+
+int serial_write(int fd, char *buf, int size)
+{
+       printk("Rwrite %x, %d\n", buf, size);
+//     return 0;
+       return rpmsg_send(ep, buf, size);
+}
+
+int serial_read(int fd, char *buf, int size)
+{
+	int ret, rx_data;
+
+	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
+			virtqueue_notification(vq[1]);
+	}
+
+	while (size > k_msgq_num_used_get(&rcv_msgq)) {
+//		while (k_sem_take(&message_received, K_NO_WAIT) != 0)
+//			hil_poll(proc, 0);
+		k_sleep(5);
+	}
+
+	for (int i = 0; i < size; i++) {
+	       ret = k_msgq_get(&rcv_msgq, &rx_data, K_NO_WAIT);
+	       buf[i] = (rx_data & 0xFF);
+	//             printk("%d ", buf[i]);
+	//             zassert_equal(ret, 0, NULL);
+	}
+	return size;
+}
+
+int serial_open(const char *port)
+{
+	printk("serial open %s\n", port);
+	return 0;
+}
+
+int serial_close(int fd)
+{
+	return 0;
 }
 
 void app_task(void *arg1, void *arg2, void *arg3)
@@ -230,6 +307,10 @@ void app_task(void *arg1, void *arg2, void *arg3)
 		return;
 	}
 
+	while (1) {
+		k_sleep(500);
+	}
+
 	while (message < 99) {
 		message = receive_message();
 		printk("Remote core received a message: %d\n", message);
@@ -250,10 +331,42 @@ _cleanup:
 	printk("OpenAMP demo ended.\n");
 }
 
+typedef struct ErpcMessageBufferFactory *erpc_mbf_t;
+typedef struct ErpcTransport *erpc_transport_t;
+
 void main(void)
 {
 	printk("Starting application thread!\n");
 	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
+
+	k_msgq_init(&rcv_msgq, tbuffer, MSG_SIZE, MSGQ_LEN);
+	k_sleep(500);
+
+        //  erpc_transport_t
+	erpc_transport_t transport = erpc_transport_rpmsg_openamp_init("zssR", 115200);
+	//     erpc_mbf_t
+	erpc_mbf_t message_buffer_factory = erpc_mbf_static_init();
+
+	erpc_client_init(transport ,message_buffer_factory);
+
+	Matrix matrix1 = {3};
+	Matrix matrix2 = {5};
+	Matrix matrixR = {0};
+	int matrix_size = 5, i, j;
+
+	for (i = 0; i < matrix_size; ++i)
+	{
+		for (j = 0; j < matrix_size; ++j)
+		{
+			matrix1[i][j] = 3;
+			matrix2[i][j] = 5;
+		}
+	}
+
+	erpcMatrixMultiply(matrix1, matrix2, matrixR);
+	printk("R %d\n", matrixR[2][2]);
+	erpcMatrixMultiply(matrix1, matrix2, matrixR);
+	printk("RB %d\n", matrixR[2][2]);
 }

@@ -14,6 +14,11 @@ endif()
 
 enable_language(C ASM)
 
+zephyr_library_link_libraries($ENV{ZEPHYR_BASE}/lib/erpc/liberpcserver.a)
+
+set(SERVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/service")
+set(ERPC_DIR "$ENV{ZEPHYR_BASE}/lib/erpc/erpc_c/")
+
 target_sources(app PRIVATE src/main.c)
 
 include(ExternalProject)
@@ -28,3 +33,9 @@ ExternalProject_Add(
 #add_dependencies(core_m0_inc_target openamp_remote)
 
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_include_directories(app PRIVATE ${PLATFORM_DIR})
+target_include_directories(app PRIVATE ${SERVICE_DIR})
+target_include_directories(app PRIVATE ${ERPC_DIR}/infra)
+target_include_directories(app PRIVATE ${ERPC_DIR}/port)
+target_include_directories(app PRIVATE ${ERPC_DIR}/config)
