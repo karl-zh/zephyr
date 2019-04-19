@@ -61,7 +61,8 @@ static int ipm_mhu_send(struct device *d, int wait, u32_t cpu_id,
 			  const void *data, int size)
 {
 	ARG_UNUSED(wait);
-	u32_t set_val = *(u32_t *)data;
+	ARG_UNUSED(data);
+	const u32_t set_val = 0x01;
 
 	struct ipm_mhu_reg_map_t *p_mhu_dev;
 
