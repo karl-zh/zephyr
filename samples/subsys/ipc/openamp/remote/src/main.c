@@ -93,7 +93,7 @@ static K_SEM_DEFINE(data_rx_sem, 0, 1);
 #define RX_BUFF_SIZE            256
 
 #define MSG_SIZE                4
-#define MSGQ_LEN                256
+#define MSGQ_LEN                512
 
 struct rcv_buff {
     unsigned char rcv[RX_BUFF_SIZE];
@@ -114,16 +114,17 @@ int endpoint_cb(struct rpmsg_endpoint *ept, void *data,
 {
 
 	int ret, rx_data;
-	printk("Rrcv %d.\n", len);
+	printk("Red %d.\n", len);
+	received_data = *((unsigned int *) data);
+
 	for (int i  = 0; i < len; i++) {
 		rx_data = *((char *)data + i);
 		//             printk("%x ", rx_data);
-		ret = k_msgq_put(&rcv_msgq, &rx_data, K_NO_WAIT);
+		ret = k_msgq_put(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
 		if (ret != 0)
-			printk(" %s error.\n", __func__);
+			printk(" %s error %d.\n", __func__, ret);
 		//             zassert_equal(ret, 0, NULL);
 	}
-//received_data = *((unsigned int *) data);
 
 	k_sem_give(&data_rx_sem);
 
@@ -170,17 +171,26 @@ void print_log(const char *fmt)
 
 int serial_write(int fd, char *buf, int size)
 {
-       printk("Rwrite %x, %d\n", buf, size);
-//     return 0;
-       return rpmsg_send(ep, buf, size);
+	int sent;
+	sent = rpmsg_send(ep, buf, size);
+	printk("Rwrite %x, %d %x, %d\n", buf, size, ep->dest_addr, sent);
+
+	return sent;
 }
 
 int serial_read(int fd, char *buf, int size)
 {
 	int ret, rx_data;
 
+	printk("R SR size %d!\r\n", size);
+	if (size <= 0)
+		return 0;
 	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
+		int status = k_sem_take(&data_sem, K_FOREVER);
+
+		if (status == 0) {
 			virtqueue_notification(vq[1]);
+		}
 	}
 
 	while (size > k_msgq_num_used_get(&rcv_msgq)) {
@@ -190,11 +200,12 @@ int serial_read(int fd, char *buf, int size)
 	}
 
 	for (int i = 0; i < size; i++) {
-	       ret = k_msgq_get(&rcv_msgq, &rx_data, K_NO_WAIT);
+	       ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
 	       buf[i] = (rx_data & 0xFF);
 	//             printk("%d ", buf[i]);
 	//             zassert_equal(ret, 0, NULL);
 	}
+	printk("R SR out!\r\n");
 	return size;
 }
 
@@ -208,6 +219,9 @@ int serial_close(int fd)
 {
 	return 0;
 }
+
+typedef struct ErpcMessageBufferFactory *erpc_mbf_t;
+typedef struct ErpcTransport *erpc_transport_t;
 
 void app_task(void *arg1, void *arg2, void *arg3)
 {
@@ -307,10 +321,10 @@ void app_task(void *arg1, void *arg2, void *arg3)
 		return;
 	}
 
-	while (1) {
-		k_sleep(500);
-	}
+message = receive_message();
+printk("Remote core received a message: %d\n", message);
 
+#if 0
 	while (message < 99) {
 		message = receive_message();
 		printk("Remote core received a message: %d\n", message);
@@ -323,29 +337,9 @@ void app_task(void *arg1, void *arg2, void *arg3)
 			goto _cleanup;
 		}
 	}
-
-_cleanup:
-	rpmsg_deinit_vdev(&rvdev);
-	metal_finish();
-
-	printk("OpenAMP demo ended.\n");
-}
-
-typedef struct ErpcMessageBufferFactory *erpc_mbf_t;
-typedef struct ErpcTransport *erpc_transport_t;
-
-void main(void)
-{
-	printk("Starting application thread!\n");
-	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
-			(k_thread_entry_t)app_task,
-			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
-
-	k_msgq_init(&rcv_msgq, tbuffer, MSG_SIZE, MSGQ_LEN);
-	k_sleep(500);
-
+#endif
         //  erpc_transport_t
-	erpc_transport_t transport = erpc_transport_rpmsg_openamp_init("zssR", 115200);
+	erpc_transport_t transport = erpc_transport_serial_init("zssR", 115200);
 	//     erpc_mbf_t
 	erpc_mbf_t message_buffer_factory = erpc_mbf_static_init();
 
@@ -366,7 +360,27 @@ void main(void)
 	}
 
 	erpcMatrixMultiply(matrix1, matrix2, matrixR);
-	printk("R %d\n", matrixR[2][2]);
+	printk("MulRet %d.\n", matrixR[2][2]);
 	erpcMatrixMultiply(matrix1, matrix2, matrixR);
-	printk("RB %d\n", matrixR[2][2]);
+	printk("MulRetX %d.\n", matrixR[2][2]);
+
+	while (1) {
+		k_sleep(500);
+	}
+
+
+_cleanup:
+	rpmsg_deinit_vdev(&rvdev);
+	metal_finish();
+
+	printk("OpenAMP demo ended.\n");
+}
+
+void main(void)
+{
+	printk("Starting application thread!\n");
+	k_msgq_init(&rcv_msgq, tbuffer, MSG_SIZE, MSGQ_LEN);
+	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
+			(k_thread_entry_t)app_task,
+			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
 }

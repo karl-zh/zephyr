@@ -84,7 +84,7 @@ enum cpu_id_t {
 #define RX_BUFF_SIZE            256
 
 #define MSG_SIZE                4
-#define MSGQ_LEN                256
+#define MSGQ_LEN                512
 
 struct rcv_buff {
     unsigned char rcv[RX_BUFF_SIZE];
@@ -150,21 +150,23 @@ static K_SEM_DEFINE(data_rx_sem, 0, 1);
 
 static void platform_ipm_callback(void *context, u32_t id, volatile void *data)
 {
+	printk("M ipm\n");
 	k_sem_give(&data_sem);
 }
 
 int endpoint_cb(struct rpmsg_endpoint *ept, void *data,
 		size_t len, u32_t src, void *priv)
 {
-//	received_data = *((unsigned int *) data);
 	int ret, rx_data;
-	printk("Rrcv %d.\n", len);
+	received_data = *((unsigned int *) data);
+
+	printk("Med cb %d.\n", len);
 	for (int i	= 0; i < len; i++) {
 		rx_data = *((char *)data + i);
-		// 			printk("%x ", rx_data);
-		ret = k_msgq_put(&rcv_msgq, &rx_data, K_NO_WAIT);
+		 			printk("%x ", rx_data);
+		ret = k_msgq_put(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
 		if (ret != 0)
-			printk(" %s error.\n", __func__);
+			printk("M %s %d.\n", __func__, ret);
 		// 			zassert_equal(ret, 0, NULL);
 	}
 
@@ -182,6 +184,7 @@ static void rpmsg_service_unbind(struct rpmsg_endpoint *ept)
 {
 	(void)ept;
 	rpmsg_destroy_ept(ep);
+	printk("rpmsg_service_unbind %x\n", ep->dest_addr);
 }
 
 void ns_bind_cb(struct rpmsg_device *rdev, const char *name, u32_t dest)
@@ -190,6 +193,7 @@ void ns_bind_cb(struct rpmsg_device *rdev, const char *name, u32_t dest)
 			RPMSG_ADDR_ANY, dest,
 			endpoint_cb,
 			rpmsg_service_unbind);
+	printk("ns_bind_cb created %x, name %s dest %x\n", ep->dest_addr, name, dest);
 
 	k_sem_give(&ept_sem);
 }
@@ -236,6 +240,7 @@ void erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_matrix)
 
 static unsigned int receive_message(void)
 {
+	printk("M rcv in!\r\n");
 	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
 		int status = k_sem_take(&data_sem, K_FOREVER);
 
@@ -243,6 +248,7 @@ static unsigned int receive_message(void)
 			virtqueue_notification(vq[0]);
 		}
 	}
+	printk("M rcv out!\r\n");
 	return received_data;
 }
 
@@ -266,16 +272,25 @@ int serial_write(int fd, char *buf, int size)
  int serial_read(int fd, char *buf, int size)
  {
 	int ret, rx_data;
+	printk("M SR size %d!\r\n", size);
+	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
+		int status = k_sem_take(&data_sem, K_FOREVER);
+
+		if (status == 0) {
+			virtqueue_notification(vq[0]);
+		}
+	}
 	while (size > k_msgq_num_used_get(&rcv_msgq)) {
 		k_sleep(5);
 	}
 
 	for (int i = 0; i < size; i++) {
-	       ret = k_msgq_get(&rcv_msgq, &rx_data, K_NO_WAIT);
+	       ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
 	       buf[i] = (rx_data & 0xFF);
-	//             printk("%d ", buf[i]);
+	             printk("%d ", buf[i]);
 	//             zassert_equal(ret, 0, NULL);
 	}
+	printk("M SR out!\r\n");
 	return size;
 }
 
@@ -395,9 +410,12 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	k_sem_take(&ept_sem, K_FOREVER);
 
 	printk("OpenAMP created.\n");
+
+	send_message(message);
+
 	while (1) {
-		k_sleep(500);
-	}
+		k_sleep(100);
+		}
 
 	while (message < 100) {
 		status = send_message(message);
@@ -430,21 +448,22 @@ void main(void)
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
 
-	void * transport = erpc_transport_rpmsg_openamp_init("zass", 115200);
+void * transport = erpc_transport_serial_init("zass", 115200);
 
-	void * message_buffer_factory = erpc_mbf_static_init();
+void * message_buffer_factory = erpc_mbf_static_init();
 
-	erpc_server_init(transport ,message_buffer_factory);
+erpc_server_init(transport ,message_buffer_factory);
 
-	/* adding the service to the server */
-	erpc_add_service_to_server(create_MatrixMultiplyService_service());
+/* adding the service to the server */
+erpc_add_service_to_server(create_MatrixMultiplyService_service());
 
-	printk("MatrixMultiply service added\r\n");
+printk("MatrixMultiply service added\r\n");
 
-	while (1) {
-		/* process message */
-		erpc_server_poll();
-	}
+while (1) {
+	/* process message */
+	erpc_server_poll();
+}
+
 }
 
 /* Make sure we clear out the status flag very early (before we bringup the
