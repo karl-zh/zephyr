@@ -106,6 +106,7 @@ static char __aligned(4) tbuffer[MSG_SIZE * MSGQ_LEN];
 
 static void platform_ipm_callback(void *context, u32_t id, volatile void *data)
 {
+	printk("Rmhu\n");
 	k_sem_give(&data_sem);
 }
 
@@ -114,12 +115,12 @@ int endpoint_cb(struct rpmsg_endpoint *ept, void *data,
 {
 
 	int ret, rx_data;
-	printk("Red %d.\n", len);
+	printk("RedLen %d.\n", len);
 	received_data = *((unsigned int *) data);
 
 	for (int i  = 0; i < len; i++) {
 		rx_data = *((char *)data + i);
-		//             printk("%x ", rx_data);
+		             printk("Red %x.", rx_data);
 		ret = k_msgq_put(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
 		if (ret != 0)
 			printk(" %s error %d.\n", __func__, ret);
@@ -144,6 +145,8 @@ static void rpmsg_service_unbind(struct rpmsg_endpoint *ept)
 
 static unsigned int receive_message(void)
 {
+	int ret, rx_data;
+
 	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
 		int status = k_sem_take(&data_sem, K_FOREVER);
 
@@ -151,6 +154,11 @@ static unsigned int receive_message(void)
 			virtqueue_notification(vq[1]);
 		}
 	}
+
+	for (int i = 0; i < 4; i++) {
+		ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
+	}
+
 	return received_data;
 }
 
@@ -180,32 +188,33 @@ int serial_write(int fd, char *buf, int size)
 
 int serial_read(int fd, char *buf, int size)
 {
-	int ret, rx_data;
+	int ret, rx_data, status;
 
-	printk("R SR size %d!\r\n", size);
-	if (size <= 0)
-		return 0;
 	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
-		int status = k_sem_take(&data_sem, K_FOREVER);
+		printk("RSR S2 %d!\r\n", size);
+		if (size > k_msgq_num_used_get(&rcv_msgq))
+			status = k_sem_take(&data_sem, K_FOREVER);
+		else
+			status = 0;
 
 		if (status == 0) {
 			virtqueue_notification(vq[1]);
+			break;
 		}
 	}
 
+	printk("RSR size %d!\r\n", size);
 	while (size > k_msgq_num_used_get(&rcv_msgq)) {
-//		while (k_sem_take(&message_received, K_NO_WAIT) != 0)
-//			hil_poll(proc, 0);
 		k_sleep(5);
 	}
 
 	for (int i = 0; i < size; i++) {
 	       ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
 	       buf[i] = (rx_data & 0xFF);
-	//             printk("%d ", buf[i]);
+	             printk("RSR %d.", buf[i]);
 	//             zassert_equal(ret, 0, NULL);
 	}
-	printk("R SR out!\r\n");
+	printk("RSR out!\r\n");
 	return size;
 }
 
@@ -322,6 +331,7 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	}
 
 message = receive_message();
+
 printk("Remote core received a message: %d\n", message);
 
 #if 0
@@ -361,8 +371,8 @@ printk("Remote core received a message: %d\n", message);
 
 	erpcMatrixMultiply(matrix1, matrix2, matrixR);
 	printk("MulRet %d.\n", matrixR[2][2]);
-	erpcMatrixMultiply(matrix1, matrix2, matrixR);
-	printk("MulRetX %d.\n", matrixR[2][2]);
+//	erpcMatrixMultiply(matrix1, matrix2, matrixR);
+//	printk("MulRetX %d.\n", matrixR[2][2]);
 
 	while (1) {
 		k_sleep(500);

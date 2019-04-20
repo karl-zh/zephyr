@@ -150,7 +150,6 @@ static K_SEM_DEFINE(data_rx_sem, 0, 1);
 
 static void platform_ipm_callback(void *context, u32_t id, volatile void *data)
 {
-	printk("M ipm\n");
 	k_sem_give(&data_sem);
 }
 
