@@ -128,6 +128,7 @@ int rpmsg_send_offchannel_raw(struct rpmsg_endpoint *ept, uint32_t src,
 			      uint32_t dst, const void *data, int size,
 			      int wait);
 
+#if 0
 /**
  * rpmsg_send() - send a message across to the remote processor
  * @ept: the rpmsg endpoint
@@ -151,6 +152,7 @@ static inline int rpmsg_send(struct rpmsg_endpoint *ept, const void *data,
 	return rpmsg_send_offchannel_raw(ept, ept->addr, ept->dest_addr, data,
 					 len, true);
 }
+#endif
 
 /**
  * rpmsg_sendto() - send a message across to the remote processor, specify dst

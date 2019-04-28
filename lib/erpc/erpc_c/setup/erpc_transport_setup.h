@@ -200,7 +200,7 @@ void erpc_transport_rpmsg_linux_deinit(void);
 /*!
  * @brief Create a openAMP RPMSG transport.
  */
-erpc_transport_t erpc_transport_rpmsg_openamp_init(const char *portName, long baudRate);
+erpc_transport_t erpc_transport_rpmsg_openamp_init(rpmsg_endpoint *ep);
 
 #ifdef __cplusplus
 }

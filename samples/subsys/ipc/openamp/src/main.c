@@ -304,6 +304,47 @@ int serial_close(int fd)
 	return 0;
 }
 
+int rpmsg_send(struct rpmsg_endpoint *ept, const void *data,
+			     int len)
+{
+	if (ept->dest_addr == RPMSG_ADDR_ANY)
+		return RPMSG_ERR_ADDR;
+	return rpmsg_send_offchannel_raw(ept, ept->addr, ept->dest_addr, data,
+					 len, true);
+}
+
+int rpmsg_read(struct rpmsg_endpoint *ept, char *data,
+			     int len)
+{
+	char *buf = data;
+	int ret, rx_data;
+	printk("M SR size %d!\r\n", len);
+	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
+		printk("M SR size1 %d, used %d!\r\n", len, k_msgq_num_used_get(&rcv_msgq));
+		int status = k_sem_take(&data_sem, K_FOREVER);
+		printk("M SR size2 %d, used %d!\r\n", len, k_msgq_num_used_get(&rcv_msgq));
+
+		if (status == 0) {
+			virtqueue_notification(vq[0]);
+		}
+		if (len <= k_msgq_num_used_get(&rcv_msgq))
+			break;
+	}
+	
+	while (len > k_msgq_num_used_get(&rcv_msgq)) {
+		k_sleep(5);
+	}
+
+	for (int i = 0; i < len; i++) {
+	       ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
+	       buf[i] = (rx_data & 0xFF);
+	             printk("%d ", buf[i]);
+	//             zassert_equal(ret, 0, NULL);
+	}
+	printk("M SR out!\r\n");
+	return len;
+}
+
 static struct rpmsg_virtio_shm_pool shpool;
 
 void app_task(void *arg1, void *arg2, void *arg3)
@@ -447,7 +488,7 @@ void main(void)
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
 
-void * transport = erpc_transport_serial_init("zass", 115200);
+void * transport = erpc_transport_rpmsg_openamp_init(ep);
 
 void * message_buffer_factory = erpc_mbf_static_init();
 

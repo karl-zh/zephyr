@@ -229,6 +229,49 @@ int serial_close(int fd)
 	return 0;
 }
 
+int rpmsg_send(struct rpmsg_endpoint *ept, const void *data,
+			     int len)
+{
+	if (ept->dest_addr == RPMSG_ADDR_ANY)
+		return RPMSG_ERR_ADDR;
+	return rpmsg_send_offchannel_raw(ept, ept->addr, ept->dest_addr, data,
+					 len, true);
+}
+
+int rpmsg_read(struct rpmsg_endpoint *ept, char *data,
+			     int len)
+{
+	int ret, rx_data, status;
+	char *buf = data;
+
+	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
+		printk("RSR S2 %d!\r\n", len);
+		if (len > k_msgq_num_used_get(&rcv_msgq))
+			status = k_sem_take(&data_sem, K_FOREVER);
+		else
+			status = 0;
+
+		if (status == 0) {
+			virtqueue_notification(vq[1]);
+			break;
+		}
+	}
+
+	printk("RSR size %d!\r\n", len);
+	while (len > k_msgq_num_used_get(&rcv_msgq)) {
+		k_sleep(5);
+	}
+
+	for (int i = 0; i < len; i++) {
+	       ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
+	       buf[i] = (rx_data & 0xFF);
+	             printk("RSR %d.", buf[i]);
+	//             zassert_equal(ret, 0, NULL);
+	}
+	printk("RSR out!\r\n");
+	return len;
+}
+
 typedef struct ErpcMessageBufferFactory *erpc_mbf_t;
 typedef struct ErpcTransport *erpc_transport_t;
 
@@ -349,7 +392,7 @@ printk("Remote core received a message: %d\n", message);
 	}
 #endif
         //  erpc_transport_t
-	erpc_transport_t transport = erpc_transport_serial_init("zssR", 115200);
+	erpc_transport_t transport = erpc_transport_rpmsg_openamp_init(ep);
 	//     erpc_mbf_t
 	erpc_mbf_t message_buffer_factory = erpc_mbf_static_init();
 
