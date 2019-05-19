@@ -1,0 +1,9 @@
+sample:
+  description: TF-M Integration sample
+    application
+  name: TF-M Integration
+    tags: introduction
+    harness: console
+tests:
+  sample.helloworld:
+    tags: introduction
