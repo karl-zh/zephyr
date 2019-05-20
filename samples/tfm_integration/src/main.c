@@ -127,10 +127,17 @@ static void tfm_ipc_test_1004()
 
 void main(void)
 {
+	int i = 0;
+#if 0
 	tfm_ipc_test_1001();
 	tfm_ipc_test_1002();
 	tfm_ipc_test_1003();
 	tfm_ipc_test_1004();
+#endif
 
-	printk("Hello World! %s\n", CONFIG_BOARD);
+	while (i < 10) {
+		printk("Hello World! %s %d\n", CONFIG_BOARD, i);
+		k_sleep(200);
+		i++;
+	}
 }
