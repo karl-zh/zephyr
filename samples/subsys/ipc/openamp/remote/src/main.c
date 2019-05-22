@@ -74,8 +74,11 @@ static u32_t virtio_get_features(struct virtio_device *vdev)
 static void virtio_notify(struct virtqueue *vq)
 {
 	u32_t dummy_data = 0x00110011; /* Some data must be provided */
+	u32_t current_core = *(volatile u32_t *)0x5001F000;
 
-	ipm_send(ipm_handle, 0, 0, &dummy_data, sizeof(dummy_data));
+//	ipm_send(ipm_handle, 0, 0, &dummy_data, sizeof(dummy_data));
+    ipm_send(ipm_handle, 0, current_core ? 0 : 1, &dummy_data, 1);
+
 }
 
 struct virtio_dispatch dispatch = {
@@ -89,6 +92,9 @@ static K_SEM_DEFINE(data_rx_sem, 0, 1);
 
 static void platform_ipm_callback(void *context, u32_t id, volatile void *data)
 {
+	struct virtqueue vq;
+
+	virtio_notify(&vq);
 	k_sem_give(&data_sem);
 }
 
@@ -168,7 +174,7 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	}
 
 	/* setup IPM */
-	ipm_handle = device_get_binding("MAILBOX_0");
+	ipm_handle = device_get_binding(DT_ARM_MHU_0_LABEL);
 	if (ipm_handle == NULL) {
 		printk("device_get_binding failed to find device\n");
 		return;
@@ -181,6 +187,7 @@ void app_task(void *arg1, void *arg2, void *arg3)
 		printk("ipm_set_enabled failed\n");
 		return;
 	}
+	printk("ipm_set_enabled Done\n");
 
 	/* setup vdev */
 	vq[0] = virtqueue_allocate(VRING_SIZE);
@@ -250,6 +257,7 @@ _cleanup:
 void main(void)
 {
 	printk("Starting application thread!\n");
+	k_sleep(500);
 	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
 			(k_thread_entry_t)app_task,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, 0);
