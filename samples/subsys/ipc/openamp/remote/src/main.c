@@ -18,6 +18,10 @@
 #include <metal/device.h>
 
 #include "common.h"
+#include "erpc_matrix_multiply.h"
+#include "erpc_client_setup.h"
+
+#define ERPC_CLIENT_SUPPORT 0
 
 #define APP_TASK_STACK_SIZE (1024)
 K_THREAD_STACK_DEFINE(thread_stack, APP_TASK_STACK_SIZE);
@@ -77,8 +81,7 @@ static void virtio_notify(struct virtqueue *vq)
 	u32_t current_core = *(volatile u32_t *)0x5001F000;
 
 //	ipm_send(ipm_handle, 0, 0, &dummy_data, sizeof(dummy_data));
-    ipm_send(ipm_handle, 0, current_core ? 0 : 1, &dummy_data, 1);
-
+	ipm_send(ipm_handle, 0, current_core ? 0 : 1, &dummy_data, 1);
 }
 
 struct virtio_dispatch dispatch = {
@@ -90,19 +93,46 @@ struct virtio_dispatch dispatch = {
 static K_SEM_DEFINE(data_sem, 0, 1);
 static K_SEM_DEFINE(data_rx_sem, 0, 1);
 
+#if 1
+#define RX_BUFF_SIZE            256
+
+#define MSG_SIZE                4
+#define MSGQ_LEN                512
+
+struct rcv_buff {
+    unsigned char rcv[RX_BUFF_SIZE];
+    unsigned int len;
+    unsigned int start;
+};
+
+struct k_msgq rcv_msgq;
+static char __aligned(4) tbuffer[MSG_SIZE * MSGQ_LEN];
+#endif
+
 static void platform_ipm_callback(void *context, u32_t id, volatile void *data)
 {
-	struct virtqueue vq;
-
-	virtio_notify(&vq);
+	printk("Rmhu\n");
 	k_sem_give(&data_sem);
 }
 
 int endpoint_cb(struct rpmsg_endpoint *ept, void *data,
 		size_t len, u32_t src, void *priv)
 {
+
+	int ret, rx_data;
+	printk("RedLen %d.\n", len);
 	received_data = *((unsigned int *) data);
 
+#if ERPC_CLIENT_SUPPORT
+	for (int i  = 0; i < len; i++) {
+		rx_data = *((char *)data + i);
+		             printk("Red %x.", rx_data);
+		ret = k_msgq_put(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
+		if (ret != 0)
+			printk(" %s error %d.\n", __func__, ret);
+		//             zassert_equal(ret, 0, NULL);
+	}
+#endif
 	k_sem_give(&data_rx_sem);
 
 	return RPMSG_SUCCESS;
@@ -121,6 +151,8 @@ static void rpmsg_service_unbind(struct rpmsg_endpoint *ept)
 
 static unsigned int receive_message(void)
 {
+	int ret, rx_data;
+
 	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
 		int status = k_sem_take(&data_sem, K_FOREVER);
 
@@ -128,13 +160,85 @@ static unsigned int receive_message(void)
 			virtqueue_notification(vq[1]);
 		}
 	}
+
+#if ERPC_CLIENT_SUPPORT
+	for (int i = 0; i < 4; i++) {
+		ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
+	}
+#endif
 	return received_data;
 }
 
+#if ERPC_CLIENT_SUPPORT
+void __assert_func (const char *file, int line, const char *func, const char *e)
+{
+       printk("%s,%d,%s,%s\n", file, line, func, e);
+}
+
+void print_log(const char *fmt)
+{
+       printk("%s", fmt);
+}
+#endif
+
+#if ERPC_CLIENT_SUPPORT
+int rpmsg_openamp_send(struct rpmsg_endpoint *ept, const void *data,
+			     int len)
+{
+	if (ept->dest_addr == RPMSG_ADDR_ANY)
+		return RPMSG_ERR_ADDR;
+	return rpmsg_send_offchannel_raw(ept, ept->addr, ept->dest_addr, data,
+					 len, true);
+}
+
+int rpmsg_openamp_read(struct rpmsg_endpoint *ept, char *data,
+			     int len)
+{
+	int ret, rx_data, status;
+	char *buf = data;
+
+	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
+		printk("RSR S2 %d!\r\n", len);
+		if (len > k_msgq_num_used_get(&rcv_msgq))
+			status = k_sem_take(&data_sem, K_FOREVER);
+		else
+			status = 0;
+
+		if (status == 0) {
+			virtqueue_notification(vq[1]);
+			break;
+		}
+	}
+
+	printk("RSR size %d!\r\n", len);
+	while (len > k_msgq_num_used_get(&rcv_msgq)) {
+		k_sleep(5);
+	}
+
+	for (int i = 0; i < len; i++) {
+	       ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
+	       buf[i] = (rx_data & 0xFF);
+	             printk("RSR %d.", buf[i]);
+	//             zassert_equal(ret, 0, NULL);
+	}
+	printk("RSR out!\r\n");
+	return len;
+}
+#endif
+
 static int send_message(unsigned int message)
 {
+#if ERPC_CLIENT_SUPPORT
+	return rpmsg_openamp_send(ep, &message, sizeof(message));
+#else
 	return rpmsg_send(ep, &message, sizeof(message));
+#endif
 }
+
+#if ERPC_CLIENT_SUPPORT
+typedef struct ErpcMessageBufferFactory *erpc_mbf_t;
+typedef struct ErpcTransport *erpc_transport_t;
+#endif
 
 void app_task(void *arg1, void *arg2, void *arg3)
 {
@@ -189,6 +293,9 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	}
 	printk("ipm_set_enabled Done\n");
 
+#if ERPC_CLIENT_SUPPORT
+	k_msgq_init(&rcv_msgq, tbuffer, MSG_SIZE, MSGQ_LEN);
+#endif
 	/* setup vdev */
 	vq[0] = virtqueue_allocate(VRING_SIZE);
 	if (vq[0] == NULL) {
@@ -234,6 +341,7 @@ void app_task(void *arg1, void *arg2, void *arg3)
 		return;
 	}
 
+#if 1
 	while (message < 99) {
 		message = receive_message();
 		printk("Remote core received a message: %d\n", message);
@@ -246,6 +354,45 @@ void app_task(void *arg1, void *arg2, void *arg3)
 			goto _cleanup;
 		}
 	}
+#endif
+
+#if ERPC_CLIENT_SUPPORT
+
+//  erpc_transport_t
+	message = receive_message();
+	
+	printk("Remote core received a message: %d\n", message);
+
+	erpc_transport_t transport = erpc_transport_rpmsg_openamp_init(ep);
+	//     erpc_mbf_t
+	erpc_mbf_t message_buffer_factory = erpc_mbf_static_init();
+
+	erpc_client_init(transport ,message_buffer_factory);
+
+	Matrix matrix1;
+	Matrix matrix2;
+	Matrix matrixR = {{0}, {0}};
+	int matrix_size = 5, i, j;
+
+	for (i = 0; i < matrix_size; ++i)
+	{
+		for (j = 0; j < matrix_size; ++j)
+		{
+			matrix1[i][j] = 3;
+			matrix2[i][j] = 5;
+		}
+	}
+
+	erpcMatrixMultiply(matrix1, matrix2, matrixR);
+	printk("MulRet %d.\n", matrixR[2][2]);
+//	erpcMatrixMultiply(matrix1, matrix2, matrixR);
+//	printk("MulRetX %d.\n", matrixR[2][2]);
+
+	while (1) {
+		k_sleep(500);
+	}
+#endif
+
 
 _cleanup:
 	rpmsg_deinit_vdev(&rvdev);
