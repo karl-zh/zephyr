@@ -21,7 +21,7 @@
 #include "erpc_matrix_multiply.h"
 #include "erpc_client_setup.h"
 
-#define ERPC_CLIENT_SUPPORT 0
+#define ERPC_CLIENT_SUPPORT 1
 
 #define APP_TASK_STACK_SIZE (1024)
 K_THREAD_STACK_DEFINE(thread_stack, APP_TASK_STACK_SIZE);
@@ -93,17 +93,11 @@ struct virtio_dispatch dispatch = {
 static K_SEM_DEFINE(data_sem, 0, 1);
 static K_SEM_DEFINE(data_rx_sem, 0, 1);
 
-#if 1
+#if ERPC_CLIENT_SUPPORT
 #define RX_BUFF_SIZE            256
 
 #define MSG_SIZE                4
 #define MSGQ_LEN                512
-
-struct rcv_buff {
-    unsigned char rcv[RX_BUFF_SIZE];
-    unsigned int len;
-    unsigned int start;
-};
 
 struct k_msgq rcv_msgq;
 static char __aligned(4) tbuffer[MSG_SIZE * MSGQ_LEN];
@@ -126,7 +120,7 @@ int endpoint_cb(struct rpmsg_endpoint *ept, void *data,
 #if ERPC_CLIENT_SUPPORT
 	for (int i  = 0; i < len; i++) {
 		rx_data = *((char *)data + i);
-		             printk("Red %x.", rx_data);
+//		             printk("Red %x.", rx_data);
 		ret = k_msgq_put(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
 		if (ret != 0)
 			printk(" %s error %d.\n", __func__, ret);
@@ -185,6 +179,7 @@ void print_log(const char *fmt)
 int rpmsg_openamp_send(struct rpmsg_endpoint *ept, const void *data,
 			     int len)
 {
+	printk("%s, %d\r\n", "RemotSend", len);
 	if (ept->dest_addr == RPMSG_ADDR_ANY)
 		return RPMSG_ERR_ADDR;
 	return rpmsg_send_offchannel_raw(ept, ept->addr, ept->dest_addr, data,
@@ -197,35 +192,29 @@ int rpmsg_openamp_read(struct rpmsg_endpoint *ept, char *data,
 	int ret, rx_data, status;
 	char *buf = data;
 
-	while (k_sem_take(&data_rx_sem, K_NO_WAIT) != 0) {
-		printk("RSR S2 %d!\r\n", len);
-		if (len > k_msgq_num_used_get(&rcv_msgq))
-			status = k_sem_take(&data_sem, K_FOREVER);
-		else
-			status = 0;
+	printk("RSR S2 %d!\r\n", len);
+	status = k_sem_take(&data_sem, K_FOREVER);
 
-		if (status == 0) {
-			virtqueue_notification(vq[1]);
-			break;
-		}
+	if (status == 0) {
+		virtqueue_notification(vq[1]);
 	}
 
-	printk("RSR size %d!\r\n", len);
 	while (len > k_msgq_num_used_get(&rcv_msgq)) {
 		k_sleep(5);
 	}
+	printk("RSR size %d!\r\n", len);
 
 	for (int i = 0; i < len; i++) {
-	       ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
-	       buf[i] = (rx_data & 0xFF);
-	             printk("RSR %d.", buf[i]);
-	//             zassert_equal(ret, 0, NULL);
+		ret = k_msgq_get(&rcv_msgq, (void *)&rx_data, K_NO_WAIT);
+		buf[i] = (rx_data & 0xFF);
+		printk("RSR %d.", buf[i]);
 	}
 	printk("RSR out!\r\n");
 	return len;
 }
 #endif
 
+#if 0
 static int send_message(unsigned int message)
 {
 #if ERPC_CLIENT_SUPPORT
@@ -234,6 +223,7 @@ static int send_message(unsigned int message)
 	return rpmsg_send(ep, &message, sizeof(message));
 #endif
 }
+#endif
 
 #if ERPC_CLIENT_SUPPORT
 typedef struct ErpcMessageBufferFactory *erpc_mbf_t;
@@ -293,9 +283,6 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	}
 	printk("ipm_set_enabled Done\n");
 
-#if ERPC_CLIENT_SUPPORT
-	k_msgq_init(&rcv_msgq, tbuffer, MSG_SIZE, MSGQ_LEN);
-#endif
 	/* setup vdev */
 	vq[0] = virtqueue_allocate(VRING_SIZE);
 	if (vq[0] == NULL) {
@@ -341,27 +328,12 @@ void app_task(void *arg1, void *arg2, void *arg3)
 		return;
 	}
 
-#if 1
-	while (message < 99) {
-		message = receive_message();
-		printk("Remote core received a message: %d\n", message);
-
-		message++;
-		status = send_message(message);
-		if (status < 0) {
-			printk("send_message(%d) failed with status %d\n",
-			       message, status);
-			goto _cleanup;
-		}
-	}
-#endif
-
 #if ERPC_CLIENT_SUPPORT
 
 //  erpc_transport_t
 	message = receive_message();
 	
-	printk("Remote core received a message: %d\n", message);
+	printk("Remote received test message: %d\n", message);
 
 	erpc_transport_t transport = erpc_transport_rpmsg_openamp_init(ep);
 	//     erpc_mbf_t
@@ -385,16 +357,39 @@ void app_task(void *arg1, void *arg2, void *arg3)
 
 	erpcMatrixMultiply(matrix1, matrix2, matrixR);
 	printk("MulRet %d.\n", matrixR[2][2]);
-//	erpcMatrixMultiply(matrix1, matrix2, matrixR);
-//	printk("MulRetX %d.\n", matrixR[2][2]);
+
+	for (i = 0; i < matrix_size; ++i)
+	{
+		for (j = 0; j < matrix_size; ++j)
+		{
+			matrix1[i][j] = 7;
+			matrix2[i][j] = 2;
+		}
+	}
+	erpcMatrixMultiply(matrix1, matrix2, matrixR);
+	printk("MulRetX %d.\n", matrixR[2][2]);
 
 	while (1) {
 		k_sleep(500);
 	}
 #endif
 
+#if 0
+	while (message < 99) {
+		message = receive_message();
+		printk("Remote core received a message: %d\n", message);
+
+		message++;
+		status = send_message(message);
+		if (status < 0) {
+			printk("send_message(%d) failed with status %d\n",
+			       message, status);
+			goto _cleanup;
+		}
+	}
 
 _cleanup:
+#endif
 	rpmsg_deinit_vdev(&rvdev);
 	metal_finish();
 
@@ -404,6 +399,9 @@ _cleanup:
 void main(void)
 {
 	printk("Starting application thread!\n");
+#if ERPC_CLIENT_SUPPORT
+		k_msgq_init(&rcv_msgq, tbuffer, MSG_SIZE, MSGQ_LEN);
+#endif
 	k_sleep(500);
 	k_thread_create(&thread_data, thread_stack, APP_TASK_STACK_SIZE,
 			(k_thread_entry_t)app_task,
