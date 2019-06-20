@@ -20,10 +20,11 @@
 #include "common.h"
 #include "erpc_matrix_multiply.h"
 #include "erpc_client_setup.h"
+#include "psa_client.h"
 
 #define ERPC_CLIENT_SUPPORT 1
 
-#define APP_TASK_STACK_SIZE (1024)
+#define APP_TASK_STACK_SIZE (2048)
 K_THREAD_STACK_DEFINE(thread_stack, APP_TASK_STACK_SIZE);
 static struct k_thread thread_data;
 
@@ -230,6 +231,98 @@ typedef struct ErpcMessageBufferFactory *erpc_mbf_t;
 typedef struct ErpcTransport *erpc_transport_t;
 #endif
 
+#define IPC_TEST_SERVICE1_SID        (0x1000)
+#define IPC_TEST_SERVICE1_MIN_VER    (0x0001)
+
+/**
+ * \brief Retrieve the version of the PSA Framework API.
+ *
+ * \note This is a functional test only and doesn't
+ *       mean to test all possible combinations of
+ *       input parameters and return values.
+ */
+static void tfm_ipc_rpc_1001()
+{
+	uint32_t version;
+
+	version = psa_framework_version();
+	if (version == PSA_FRAMEWORK_VERSION) {
+		printk("The version of the PSA Framework API is %d.\r\n", version);
+	} else {
+		printk("The version of the PSA Framework API is not valid!\r\n");
+		return;
+	}
+}
+
+/**
+ * \brief Retrieve the minor version of a RoT Service.
+ */
+static void tfm_ipc_rpc_1002()
+{
+	uint32_t version;
+
+	version = psa_version(IPC_TEST_SERVICE1_SID);
+	if (version == PSA_VERSION_NONE) {
+		printk("RoT Service is not implemented or caller is not authorized" \
+		      "to access it!\r\n");
+		return;
+	} else {
+		/* Valid version number */
+		printk("The minor version is %d.\r\n", version);
+	}
+}
+
+/**
+ * \brief Connect to a RoT Service by its SID.
+ */
+static void tfm_ipc_rpc_1003()
+{
+	psa_handle_t handle;
+
+	handle = psa_connect(IPC_TEST_SERVICE1_SID, IPC_TEST_SERVICE1_MIN_VER);
+	if (handle > 0) {
+		printk("Connect success!\r\n");
+	} else {
+		printk("The RoT Service has refused the connection!\r\n");
+		return;
+	}
+	psa_close(handle);
+}
+
+/**
+ * \brief Call a RoT Service.
+ */
+static void tfm_ipc_rpc_1004()
+{
+	char str1[] = "str1";
+	char str2[] = "str2";
+	char str3[128], str4[128];
+	struct psa_invec invecs[2] = {{str1, sizeof(str1)/sizeof(char)},
+	                          {str2, sizeof(str2)/sizeof(char)}};
+	struct psa_outvec outvecs[2] = {{str3, sizeof(str3)/sizeof(char)},
+	                            {str4, sizeof(str4)/sizeof(char)}};
+	psa_handle_t handle;
+	psa_status_t status;
+	uint32_t min_version;
+
+	min_version = psa_version(IPC_TEST_SERVICE1_SID);
+	printk("TFM service support minor version is %d.\r\n", min_version);
+	handle = psa_connect(IPC_TEST_SERVICE1_SID, IPC_TEST_SERVICE1_MIN_VER);
+	status = psa_call(handle, invecs, 2, outvecs, 2);
+	if (status >= 0) {
+		printk("psa_call is successful!\r\n");
+	} else if (status == PSA_DROP_CONNECTION) {
+		printk("The connection has been dropped by the RoT Service!\r\n");
+		return;
+	} else {
+		printk("psa_call is failed!\r\n");
+		return;
+	}
+	printk("outvec1 is: %s\r\n", (char *)outvecs[0].base);
+	printk("outvec2 is: %s\r\n", (char *)outvecs[1].base);
+	psa_close(handle);
+}
+
 void app_task(void *arg1, void *arg2, void *arg3)
 {
 	ARG_UNUSED(arg1);
@@ -368,6 +461,12 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	}
 	erpcMatrixMultiply(matrix1, matrix2, matrixR);
 	printk("MulRetX %d.\n", matrixR[2][2]);
+
+
+	tfm_ipc_rpc_1001();
+	tfm_ipc_rpc_1002();
+	tfm_ipc_rpc_1003();
+	tfm_ipc_rpc_1004();
 
 	while (1) {
 		k_sleep(500);

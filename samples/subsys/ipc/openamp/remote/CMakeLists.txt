@@ -21,6 +21,7 @@ set(SERVICE_DIR "${ERPC_DIR}/service/")
 
 target_sources(app PRIVATE src/main.c)
 target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tfm/inc)
 
 target_include_directories(app PRIVATE ${SERVICE_DIR})
 target_include_directories(app PRIVATE ${ERPC_DIR}/erpc_c/infra)
