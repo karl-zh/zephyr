@@ -29,6 +29,7 @@ ExternalProject_Add(
   INSTALL_COMMAND ""      # This particular build system has no install command
   CMAKE_CACHE_ARGS -DBOARD:string=${BOARD_REMOTE}
   CMAKE_CACHE_ARGS -DDTC_OVERLAY_FILE:string=${DTC_OVERLAY_FILE}
+  CMAKE_CACHE_ARGS -DCONF_FILE:string=${CONF_FILE}
   BUILD_BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/openamp_remote-prefix/src/openamp_remote-build/zephyr/zephyr.bin"
   # NB: Do we need to pass on more CMake variables?
 )
