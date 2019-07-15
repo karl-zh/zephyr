@@ -8,3 +8,8 @@ tests:
         extra_args: CONF_FILE=lpcx.conf
         platform_whitelist: lpcxpresso54114_m4
         tags: ipm
+    sample.subsys.ipc.openamp.mps2_an521:
+        build_only: true
+        extra_args: CONF_FILE=prj.conf
+        platform_whitelist: mps2_an521
+        tags: ipm
