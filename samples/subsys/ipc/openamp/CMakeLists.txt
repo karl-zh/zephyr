@@ -7,6 +7,8 @@ cmake_minimum_required(VERSION 3.13.1)
 
 if("${BOARD}" STREQUAL "lpcxpresso54114_m4")
   set(BOARD_REMOTE "lpcxpresso54114_m0")
+elseif("${BOARD}" STREQUAL "mps2_an521")
+  set(BOARD_REMOTE "mps2_an521_nonsecure")
 else()
   message(FATAL_ERROR "${BOARD} was not supported for this sample")
 endif()
