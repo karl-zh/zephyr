@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Linaro Limited
+ * Copyright (c) 2018-2019 Linaro Limited
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -36,6 +36,8 @@
 /* SCC */
 #define DT_ARM_SCC_BASE_ADDRESS			DT_ARM_SCC_4010C000_BASE_ADDRESS
 
+#define DT_IPM_DEV				DT_ARM_MHU_40003000_LABEL
+
 #else
 
 /* CMSDK APB Universal Asynchronous Receiver-Transmitter (UART) */
@@ -61,6 +63,8 @@
 
 /* SCC */
 #define DT_ARM_SCC_BASE_ADDRESS			DT_ARM_SCC_5010C000_BASE_ADDRESS
+
+#define DT_IPM_DEV				DT_ARM_MHU_50003000_LABEL
 
 #endif
 

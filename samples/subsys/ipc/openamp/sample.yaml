@@ -13,3 +13,8 @@ tests:
         extra_args: CONF_FILE=prj.conf
         platform_whitelist: mps2_an521
         tags: ipm
+    sample.subsys.ipc.openamp.v2m_musca:
+        build_only: true
+        extra_args: CONF_FILE=prj.conf
+        platform_whitelist: v2m_musca
+        tags: ipm
