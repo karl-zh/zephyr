@@ -92,4 +92,11 @@ config I2C_SBCON
 
 endif # I2C
 
+if IPM
+
+config IPM_MHU
+	default y
+
+endif # IPM
+
 endif
