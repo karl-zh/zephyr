@@ -21,6 +21,8 @@
 #include "psa/client.h"
 #include "psa_manifest/sid.h"
 
+#include "sst_ns_tests.h"
+
 #define ERPC_CLIENT_SUPPORT 1
 
 #define APP_TASK_STACK_SIZE (2048)
@@ -510,6 +512,29 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	tfm_ipc_rpc_1004();
 	tfm_ipc_rpc_1005();
 	tfm_ipc_rpc_1006();
+
+	tfm_sst_rpc_test_1001();
+	tfm_sst_rpc_test_1002();
+	tfm_sst_rpc_test_1003();
+	tfm_sst_rpc_test_1004();
+	tfm_sst_rpc_test_1005();
+	tfm_sst_rpc_test_1006();
+	tfm_sst_rpc_test_1007();
+	tfm_sst_rpc_test_1008();
+	tfm_sst_rpc_test_1009();
+	tfm_sst_rpc_test_1010();
+	tfm_sst_rpc_test_1011();
+	tfm_sst_rpc_test_1012();
+	tfm_sst_rpc_test_1013();
+	tfm_sst_rpc_test_1014();
+	tfm_sst_rpc_test_1015();
+	tfm_sst_rpc_test_1016();
+	tfm_sst_rpc_test_1017();
+
+	tfm_sst_rpc_test_1023();
+	tfm_sst_rpc_test_1024();
+	tfm_sst_rpc_test_1025();
+	tfm_sst_rpc_test_1026();
 
 	while (1) {
 		k_sleep(500);
