@@ -22,6 +22,7 @@
 #include "psa_manifest/sid.h"
 
 #include "sst_ns_tests.h"
+#include "crypto_ns_tests.h"
 
 #define ERPC_CLIENT_SUPPORT 1
 
@@ -535,6 +536,28 @@ void app_task(void *arg1, void *arg2, void *arg3)
 	tfm_sst_rpc_test_1024();
 	tfm_sst_rpc_test_1025();
 	tfm_sst_rpc_test_1026();
+
+	tfm_crypto_rpc_test_6001();
+	tfm_crypto_rpc_test_6002();
+	tfm_crypto_rpc_test_6003();
+	tfm_crypto_rpc_test_6005();
+	tfm_crypto_rpc_test_6007();
+	tfm_crypto_rpc_test_6008();
+	tfm_crypto_rpc_test_6009();
+	tfm_crypto_rpc_test_6010();
+	tfm_crypto_rpc_test_6011();
+	tfm_crypto_rpc_test_6012();
+	tfm_crypto_rpc_test_6013();
+	tfm_crypto_rpc_test_6014();
+	tfm_crypto_rpc_test_6019();
+	tfm_crypto_rpc_test_6020();
+	tfm_crypto_rpc_test_6021();
+	tfm_crypto_rpc_test_6022();
+	tfm_crypto_rpc_test_6024();
+	tfm_crypto_rpc_test_6030();
+	tfm_crypto_rpc_test_6031();
+	tfm_crypto_rpc_test_6032();
+	tfm_crypto_rpc_test_6033();
 
 	while (1) {
 		k_sleep(500);
