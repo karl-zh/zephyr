@@ -386,7 +386,7 @@ Follow the build steps for AN521 target while replacing the platform with
 
 Copy over tfm as a library to the Zephyr project source and create a shortcut
 for the secure veneers and necessary header files. All files are in the install
-folder after TF-M built.
+folder after TF-M has been built.
 
 Uploading an application to MPS2+ AN521
 ---------------------------------------

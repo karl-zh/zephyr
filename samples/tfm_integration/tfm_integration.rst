@@ -1,7 +1,7 @@
 .. _tfm_integration-samples:
 
-Various TFM Integration Samples
-###############################
+TFM Integration Samples
+#######################
 
 .. toctree::
    :maxdepth: 1

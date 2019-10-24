@@ -49,22 +49,22 @@ On MPS2+ AN521:
    (``-DBOARD=mps2_an521_nonsecure``). This will also build TF-M in the
    ``ext/tfm`` folder if necessary.
 
-Using ``west``
+   Using ``west``
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   cd <ZEPHYR_ROOT>/samples/tfm_integration/psa_level_1/
-   west build -p -b mps2_an521_nonsecure ./
+      cd <ZEPHYR_ROOT>/samples/tfm_integration/psa_level_1/
+      west build -p -b mps2_an521_nonsecure ./
 
-Using ``cmake``
+   Using ``cmake``
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   cd <ZEPHYR_ROOT>/samples/tfm_integration/psa_level_1/
-   mkdir build
-   cd build
-   cmake -GNinja -DBOARD=mps2_an521_nonsecure ..
-   ninja -v
+      cd <ZEPHYR_ROOT>/samples/tfm_integration/psa_level_1/
+      mkdir build
+      cd build
+      cmake -GNinja -DBOARD=mps2_an521_nonsecure ..
+      ninja -v
 
 2. Copy application binary files (mcuboot.bin and tfm_sign.bin) to
    ``<MPS2 device name>/SOFTWARE/``.
@@ -94,29 +94,29 @@ On QEMU:
    (``-DBOARD=mps2_an521_nonsecure``). This will also build TF-M in the
    ``ext/tfm`` folder if necessary.
 
-Using ``west``
+   Using ``west``
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   cd <ZEPHYR_ROOT>/samples/tfm_integration/psa_level_1/
-   west build -p -b mps2_an521_nonsecure ./
+      cd <ZEPHYR_ROOT>/samples/tfm_integration/psa_level_1/
+      west build -p -b mps2_an521_nonsecure ./
 
-Using ``cmake``
+   Using ``cmake``
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   cd <ZEPHYR_ROOT>/samples/tfm_integration/psa_level_1/
-   mkdir build
-   cd build
-   cmake -GNinja -DBOARD=mps2_an521_nonsecure ..
-   ninja -v
+      cd <ZEPHYR_ROOT>/samples/tfm_integration/psa_level_1/
+      mkdir build
+      cd build
+      cmake -GNinja -DBOARD=mps2_an521_nonsecure ..
+      ninja -v
 
 2. Run the qemu startup script, which will merge the key binaries and start
    execution of QEMU using the AN521 build target:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   ./qemu.sh
+      ./qemu.sh
 
 Sample Output
 =============

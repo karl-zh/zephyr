@@ -24,30 +24,30 @@ On MPS2+ AN521:
 
 1. Build Zephyr with a non-secure configuration (``-DBOARD=mps2_an521_nonsecure``).
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   cd $ZEPHYR_ROOT/samples/tfm_integration/tfm_ipc/
-   mkdir build
-   cd build
-   cmake -GNinja -DBOARD=mps2_an521_nonsecure ..
-   ninja -v
+      cd $ZEPHYR_ROOT/samples/tfm_integration/tfm_ipc/
+      mkdir build
+      cd build
+      cmake -GNinja -DBOARD=mps2_an521_nonsecure ..
+      ninja -v
 
 2. Copy application binary files (mcuboot.bin and tfm_sign.bin) to ``<MPS2 device name>/SOFTWARE/``.
 3. Open ``<MPS2 device name>/MB/HBI0263C/AN521/images.txt``.
 4. Update the ``AN521/images.txt`` file as follows:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   TITLE: Versatile Express Images Configuration File
+      TITLE: Versatile Express Images Configuration File
 
-   [IMAGES]
-   TOTALIMAGES: 2 ;Number of Images (Max: 32)
+      [IMAGES]
+      TOTALIMAGES: 2 ;Number of Images (Max: 32)
 
-   IMAGE0ADDRESS: 0x10000000
-   IMAGE0FILE: \SOFTWARE\mcuboot.bin  ; BL2 bootloader
+      IMAGE0ADDRESS: 0x10000000
+      IMAGE0FILE: \SOFTWARE\mcuboot.bin  ; BL2 bootloader
 
-   IMAGE1ADDRESS: 0x10080000
-   IMAGE1FILE: \SOFTWARE\tfm_sign.bin ; TF-M with application binary blob
+      IMAGE1ADDRESS: 0x10080000
+      IMAGE1FILE: \SOFTWARE\tfm_sign.bin ; TF-M with application binary blob
 
 5. Reset MPS2+ board.
 
